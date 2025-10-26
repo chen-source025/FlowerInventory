@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- cSpell:ignore FULLSCAN -->
+    <title>
+        <!-- TemplateBeginEditable name="doctitle" -->
+        花卉庫存管理系統 - 頁面標題
+        <!-- TemplateEndEditable -->
+    </title>
+    
+    <!-- TemplateBeginEditable name="head" -->
+    <!-- 放置頁面特定的 CSS 或 meta 標籤 -->
+    <!-- TemplateEndEditable -->
+    
+    <!-- 共用 CSS -->
+    <link rel="stylesheet" href="/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="/css/site.css" />
+    
+    <!-- Font Awesome 圖示 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    
+    <!-- Dreamweaver 設計時樣式 -->
+    <style>
+        .dw-editable-region {
+            border: 2px dashed #28a745;
+            padding: 15px;
+            margin: 10px 0;
+            background: #f8fff9;
+            min-height: 50px;
+        }
+        .dw-template-note {
+            color: #6c757d;
+            font-size: 0.875rem;
+            font-style: italic;
+        }
+        .dw-design-mode .dw-editable-region {
+            background: linear-gradient(45deg, #f8fff9, #e8f5e8);
+        }
+    </style>
+</head>
+<body class="dw-design-mode">
+    <!-- TemplateBeginEditable name="Navigation" -->
+    <div class="dw-editable-region">
+        <p class="dw-template-note">導航列區域 - 可根據頁面需求調整</p>
+        <header>
+            <nav class="navbar navbar-expand-sm navbar-toggleable-sm navbar-dark bg-success border-bottom box-shadow mb-3">
+                <div class="container">
+                    <a class="navbar-brand" href="/">
+                        <i class="fas fa-leaf me-2"></i>花卉庫存管理系統
+                    </a>
+                    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target=".navbar-collapse" 
+                            aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+                        <span class="navbar-toggler-icon"></span>
+                    </button>
+                    <div class="navbar-collapse collapse d-sm-inline-flex justify-content-between">
+                        <ul class="navbar-nav flex-grow-1">
+                            <li class="nav-item">
+                                <a class="nav-link text-light" asp-controller="Home" asp-action="Index">
+                                    <i class="fas fa-home me-1"></i>首頁
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link text-light" asp-controller="Workflow" asp-action="Dashboard">
+                                    <i class="fas fa-tachometer-alt me-1"></i>作業儀表板
+                                </a>
+                            </li>
+                            <li class="nav-item dropdown">
+                                <a class="nav-link text-light dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+                                    <i class="fas fa-boxes me-1"></i>庫存管理
+                                </a>
+                                <ul class="dropdown-menu">
+                                    <li><a class="dropdown-item" asp-controller="Workflow" asp-action="InventoryOverview">庫存總覽</a></li>
+                                    <li><a class="dropdown-item" asp-controller="Flowers" asp-action="Index">花卉管理</a></li>
+                                    <li><a class="dropdown-item" asp-controller="Inventory" asp-action="Batches">批次管理</a></li>
+                                </ul>
+                            </li>
+                            <li class="nav-item dropdown">
+                                <a class="nav-link text-light dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+                                    <i class="fas fa-tasks me-1"></i>作業流程
+                                </a>
+                                <ul class="dropdown-menu">
+                                    <li><a class="dropdown-item" asp-controller="Workflow" asp-action="ReceiveGoods">進貨作業</a></li>
+                                    <li><a class="dropdown-item" asp-controller="Workflow" asp-action="ShipGoods">出貨作業</a></li>
+                                    <li><a class="dropdown-item" asp-controller="Workflow" asp-action="ReplenishmentReport">補貨建議</a></li>
+                                </ul>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </nav>
+        </header>
+    </div>
+    <!-- TemplateEndEditable -->
+
+    <div class="container">
+        <main role="main" class="pb-3">
+            <!-- TemplateBeginEditable name="Content" -->
+            <div class="dw-editable-region">
+                <p class="dw-template-note">主要內容區域 - 在此放置頁面特定內容</p>
+                <div class="text-center py-5">
+                    <h1 class="display-4">歡迎使用花卉庫存管理系統</h1>
+                    <p class="lead">這是一個使用 ASP.NET Core 開發的專業庫存管理系統</p>
+                    <div class="mt-4">
+                        <a href="/Workflow/Dashboard" class="btn btn-success btn-lg me-3">
+                            <i class="fas fa-play-circle me-2"></i>開始使用
+                        </a>
+                        <a href="/Home/About" class="btn btn-outline-secondary btn-lg">
+                            <i class="fas fa-info-circle me-2"></i>系統資訊
+                        </a>
+                    </div>
+                </div>
+            </div>
+            <!-- TemplateEndEditable -->
+        </main>
+    </div>
+
+    <footer class="border-top footer text-muted">
+        <div class="container">
+            &copy; 2024 - 花卉庫存管理系統 - <a asp-area="" asp-controller="Home" asp-action="Privacy">隱私權政策</a>
+        </div>
+    </footer>
+
+    <!-- TemplateBeginEditable name="Scripts" -->
+    <div class="dw-editable-region">
+        <p class="dw-template-note">JavaScript 區域 - 放置頁面特定的 JavaScript 引用</p>
+        <script src="/lib/jquery/dist/jquery.min.js"></script>
+        <script src="/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+        <script src="/js/site.js" asp-append-version="true"></script>
+    </div>
+    <!-- TemplateEndEditable -->
+</body>
+</html>

@@ -1,0 +1,465 @@
+@model FlowerInventory.ViewModels.WorkflowDashboardViewModel
+
+@{
+    ViewData["Title"] = "作業流程儀表板";
+}
+
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="fas fa-tachometer-alt text-success"></i> 作業流程儀表板</h2>
+        <div>
+            <a href="@Url.Action("ReceiveGoods")" class="btn btn-success me-2">
+                <i class="fas fa-truck-loading"></i> 進貨作業
+            </a>
+            <a href="@Url.Action("ShipGoods")" class="btn btn-outline-success">
+                <i class="fas fa-shipping-fast"></i> 出貨作業
+            </a>
+        </div>
+    </div>
+
+    <!-- 統計卡片 -->
+    <div class="row mb-4">
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-primary shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">總品項數</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">@Model.TotalItems</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-leaf fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-warning shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">需補貨品項</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">@Model.NeedReplenishmentCount</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-exclamation-triangle fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-danger shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-danger text-uppercase mb-1">緊急補貨</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">@Model.UrgentReplenishmentCount</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-ambulance fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-success shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-success text-uppercase mb-1">服務水準</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">@Model.ServiceLevelDisplay</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-check-circle fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- 庫存狀態 - 桌面版表格 -->
+        <div class="col-lg-8 mb-4">
+            <div class="card shadow">
+                <div class="card-header bg-success text-white">
+                    <h6 class="m-0 font-weight-bold"><i class="fas fa-boxes"></i> 庫存狀態總覽</h6>
+                </div>
+                <div class="card-body">
+                    <!-- 桌面版表格 (隱藏在行動裝置) -->
+                    <div class="table-responsive d-none d-md-block">
+                        <table class="table table-bordered table-hover">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>花名</th>
+                                    <th>分類</th>
+                                    <th>當前庫存</th>
+                                    <th>安全庫存</th>
+                                    <th>每週需求</th>
+                                    <th>覆蓋天數</th>
+                                    <th>狀態</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var item in Model.InventoryStatus.Take(10))
+                                {
+                                    <tr class="@(item.CurrentStock < item.SafetyStock ? "table-warning" : "")">
+                                        <td>
+                                            <span class="badge @GetABCClassBadge(item.ABCClass)">@item.ABCClass</span>
+                                            @item.Name
+                                            @if (!string.IsNullOrEmpty(item.Variety))
+                                            {
+                                                <br /><small class="text-muted">@item.Variety</small>
+                                            }
+                                        </td>
+                                        <td>@item.Category</td>
+                                        <td>
+                                            <span class="fw-bold @(item.CurrentStock < item.SafetyStock ? "text-danger" : "text-success")">
+                                                @item.CurrentStock
+                                            </span>
+                                        </td>
+                                        <td>@Math.Ceiling(item.SafetyStock)</td>
+                                        <td>@item.WeeklyDemand.ToString("F1")</td>
+                                        <td>@item.StockCoverageDays.ToString("F1") 天</td>
+                                        <td>
+                                            @if (item.IsOutOfStock)
+                                            {
+                                                <span class="badge bg-danger">
+                                                    <i class="fas fa-times-circle"></i> 缺貨
+                                                </span>
+                                            }
+                                            else if (item.IsLowStock)
+                                            {
+                                                <span class="badge bg-warning">
+                                                    <i class="fas fa-exclamation-triangle"></i> 需補貨
+                                                </span>
+                                            }
+                                            else
+                                            {
+                                                <span class="badge bg-success">
+                                                    <i class="fas fa-check-circle"></i> 正常
+                                                </span>
+                                            }
+                                        </td>
+                                        <td>
+                                            <div class="btn-group btn-group-sm" role="group">
+                                                <a href="@Url.Action("ReceiveGoods", "Workflow", new { flowerId = item.FlowerId })" 
+                                                   class="btn btn-outline-primary" title="進貨">
+                                                    <i class="fas fa-plus"></i>
+                                                </a>
+                                                <a href="@Url.Action("ShipGoods", "Workflow", new { flowerId = item.FlowerId })" 
+                                                   class="btn btn-outline-success" title="出貨">
+                                                    <i class="fas fa-shipping-fast"></i>
+                                                </a>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- 行動版卡片 (顯示在行動裝置) -->
+                    <div class="d-md-none">
+                        @foreach (var item in Model.InventoryStatus.Take(5))
+                        {
+                            <div class="card mb-3 border-left-@(item.CurrentStock < item.SafetyStock ? "warning" : "success") border-left-3">
+                                <div class="card-body">
+                                    <div class="d-flex justify-content-between align-items-start mb-2">
+                                        <h6 class="card-title mb-0">
+                                            <span class="badge @GetABCClassBadge(item.ABCClass)">@item.ABCClass</span>
+                                            @item.Name
+                                        </h6>
+                                        <div class="dropdown">
+                                            <button class="btn btn-sm btn-outline-secondary dropdown-toggle" 
+                                                    type="button" data-bs-toggle="dropdown">
+                                                <i class="fas fa-ellipsis-v"></i>
+                                            </button>
+                                            <ul class="dropdown-menu">
+                                                <li>
+                                                    <a class="dropdown-item" 
+                                                       href="@Url.Action("ReceiveGoods", "Workflow", new { flowerId = item.FlowerId })">
+                                                        <i class="fas fa-plus me-2"></i>進貨
+                                                    </a>
+                                                </li>
+                                                <li>
+                                                    <a class="dropdown-item" 
+                                                       href="@Url.Action("ShipGoods", "Workflow", new { flowerId = item.FlowerId })">
+                                                        <i class="fas fa-shipping-fast me-2"></i>出貨
+                                                    </a>
+                                                </li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                    
+                                    @if (!string.IsNullOrEmpty(item.Variety))
+                                    {
+                                        <p class="text-muted small mb-2">@item.Variety</p>
+                                    }
+                                    
+                                    <div class="row text-center">
+                                        <div class="col-4">
+                                            <div class="fw-bold @(item.CurrentStock < item.SafetyStock ? "text-danger" : "text-success")">
+                                                @item.CurrentStock
+                                            </div>
+                                            <small class="text-muted">當前庫存</small>
+                                        </div>
+                                        <div class="col-4">
+                                            <div class="fw-bold">@Math.Ceiling(item.SafetyStock)</div>
+                                            <small class="text-muted">安全庫存</small>
+                                        </div>
+                                        <div class="col-4">
+                                            <div class="fw-bold">@item.WeeklyDemand.ToString("F1")</div>
+                                            <small class="text-muted">每週需求</small>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="mt-2">
+                                        <div class="progress mb-2" style="height: 8px;">
+                                            @{
+                                                var coveragePercent = Math.Min(100, (item.CurrentStock / Math.Max(1, item.SafetyStock)) * 100);
+                                            }
+                                            <div class="progress-bar @(item.CurrentStock < item.SafetyStock ? "bg-warning" : "bg-success")" 
+                                                style="width: @coveragePercent%"></div>
+                                        </div>
+                                        <div class="d-flex justify-content-between small text-muted">
+                                            <span>覆蓋天數: @item.StockCoverageDays.ToString("F1") 天</span>
+                                            <span>
+                                                @if (item.IsOutOfStock)
+                                                {
+                                                    <span class="badge bg-danger">缺貨</span>
+                                                }
+                                                else if (item.IsLowStock)
+                                                {
+                                                    <span class="badge bg-warning">需補貨</span>
+                                                }
+                                                else
+                                                {
+                                                    <span class="badge bg-success">正常</span>
+                                                }
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    </div>
+
+                    <div class="text-center mt-3">
+                        <a href="@Url.Action("InventoryOverview")" class="btn btn-outline-success">
+                            <i class="fas fa-list"></i> 查看完整庫存清單
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 最近活動 -->
+        <div class="col-lg-4">
+            <!-- 最近批次 -->
+            <div class="card shadow mb-4">
+                <div class="card-header bg-info text-white">
+                    <h6 class="m-0 font-weight-bold"><i class="fas fa-clipboard-list"></i> 最近進貨批次</h6>
+                </div>
+                <div class="card-body">
+                    @if (Model.RecentBatches.Any())
+                    {
+                        foreach (var batch in Model.RecentBatches)
+                        {
+                            <div class="d-flex align-items-center mb-3">
+                                <div class="flex-grow-1">
+                                    <div class="text-truncate">
+                                        <strong>@batch.Flower.Name</strong>
+                                    </div>
+                                    <div class="small text-muted">
+                                        批號: @batch.BatchNo | 數量: @batch.QuantityPassed/@batch.QuantityReceived
+                                    </div>
+                                    <div class="small text-muted">
+                                        @batch.ReceivedDate.ToString("MM/dd")
+                                        @if (batch.IsExpiringSoon)
+                                        {
+                                            <span class="badge bg-warning ms-1">即將到期</span>
+                                        }
+                                    </div>
+                                </div>
+                                <div class="flex-shrink-0">
+                                    @{
+                                        var passRate = (double)batch.PassRate;
+                                        var badgeClass = passRate >= 0.9 ? "success" : passRate >= 0.7 ? "warning" : "danger";
+                                    }
+                                    <span class="badge bg-@badgeClass">
+                                        @(batch.PassRate.ToString("P0"))
+                                    </span>
+                                </div>
+                            </div>
+                        }
+                    }
+                    else
+                    {
+                        <p class="text-muted text-center">暫無進貨批次</p>
+                    }
+                </div>
+            </div>
+
+            <!-- 快速操作 -->
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white">
+                    <h6 class="m-0 font-weight-bold"><i class="fas fa-bolt"></i> 快速操作</h6>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        <a href="@Url.Action("ReceiveGoods")" class="btn btn-success">
+                            <i class="fas fa-truck-loading"></i> 新增進貨
+                        </a>
+                        <a href="@Url.Action("ShipGoods")" class="btn btn-outline-primary">
+                            <i class="fas fa-shipping-fast"></i> 新增出貨
+                        </a>
+                        <a href="@Url.Action("ReplenishmentReport")" class="btn btn-warning">
+                            <i class="fas fa-clipboard-check"></i> 補貨建議
+                        </a>
+                        <a href="@Url.Action("Create", "Flowers")" class="btn btn-outline-info">
+                            <i class="fas fa-plus"></i> 新增花卉
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@functions {
+    string GetABCClassBadge(string abcClass)
+    {
+        return abcClass switch
+        {
+            "A" => "bg-danger",
+            "B" => "bg-warning", 
+            "C" => "bg-success",
+            _ => "bg-secondary"
+        };
+    }
+}
+
+@section Styles {
+    <style>
+        /* 行動裝置專用樣式 */
+        @@media (max-width: 768px) {
+            .mobile-stat-card {
+                margin-bottom: 1rem;
+                text-align: center;
+                padding: 1rem;
+            }
+            
+            .mobile-action-grid {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 0.5rem;
+                margin-bottom: 1rem;
+            }
+            
+            .mobile-action-grid .btn {
+                font-size: 0.8rem;
+                padding: 0.5rem;
+            }
+            
+            .mobile-inventory-item {
+                border-left: 4px solid #dee2e6;
+                padding: 1rem;
+                margin-bottom: 0.5rem;
+                background: white;
+                border-radius: 0.25rem;
+                box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            }
+            
+            .mobile-inventory-item.low-stock {
+                border-left-color: #ffc107;
+                background: linear-gradient(45deg, #fff3cd, #ffffff);
+            }
+            
+            .mobile-inventory-item.critical {
+                border-left-color: #dc3545;
+                background: linear-gradient(45deg, #f8d7da, #ffffff);
+            }
+            
+            .mobile-inventory-item.normal {
+                border-left-color: #198754;
+                background: linear-gradient(45deg, #d1edff, #ffffff);
+            }
+        }
+        
+        /* 觸控裝置優化 */
+        @@media (hover: none) and (pointer: coarse) {
+            .btn {
+                min-height: 44px;
+                min-width: 44px;
+            }
+            
+            .table-responsive .btn {
+                min-height: 36px;
+                min-width: 36px;
+            }
+        }
+    </style>
+}
+
+@section Scripts {
+    <script>
+        // 行動裝置專用功能
+        document.addEventListener('DOMContentLoaded', function() {
+            // 檢測行動裝置
+            const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+            
+            if (isMobile) {
+                // 為行動裝置優化介面
+                optimizeForMobile();
+            }
+            
+            function optimizeForMobile() {
+                // 添加觸控反饋
+                const buttons = document.querySelectorAll('.btn');
+                buttons.forEach(btn => {
+                    btn.addEventListener('touchstart', function() {
+                        this.style.transform = 'scale(0.98)';
+                    });
+                    
+                    btn.addEventListener('touchend', function() {
+                        this.style.transform = 'scale(1)';
+                    });
+                });
+                
+                // 優化表格滾動
+                const tables = document.querySelectorAll('.table-responsive');
+                tables.forEach(table => {
+                    table.style.webkitOverflowScrolling = 'touch';
+                });
+                
+                // 顯示行動裝置提示
+                InventoryApp.showToast('已優化為行動裝置模式', 'info');
+            }
+            
+            // 下拉選單優化
+            const dropdowns = document.querySelectorAll('.dropdown');
+            dropdowns.forEach(dropdown => {
+                dropdown.addEventListener('show.bs.dropdown', function() {
+                    if (isMobile) {
+                        const dropdownMenu = this.querySelector('.dropdown-menu');
+                        dropdownMenu.style.position = 'fixed';
+                        dropdownMenu.style.top = '50%';
+                        dropdownMenu.style.left = '50%';
+                        dropdownMenu.style.transform = 'translate(-50%, -50%)';
+                        dropdownMenu.style.width = '80%';
+                        dropdownMenu.style.maxHeight = '70vh';
+                        dropdownMenu.style.overflowY = 'auto';
+                    }
+                });
+            });
+        });
+    </script>
+}

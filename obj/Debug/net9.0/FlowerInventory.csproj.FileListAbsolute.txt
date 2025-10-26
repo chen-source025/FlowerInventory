@@ -1,0 +1,9 @@
+c:\Users\QiFeng\FlowerInventory\obj\Debug\net9.0\FlowerInventory.csproj.AssemblyReference.cache
+c:\Users\QiFeng\FlowerInventory\obj\Debug\net9.0\rpswa.dswa.cache.json
+c:\Users\QiFeng\FlowerInventory\obj\Debug\net9.0\FlowerInventory.GeneratedMSBuildEditorConfig.editorconfig
+c:\Users\QiFeng\FlowerInventory\obj\Debug\net9.0\FlowerInventory.AssemblyInfoInputs.cache
+c:\Users\QiFeng\FlowerInventory\obj\Debug\net9.0\FlowerInventory.AssemblyInfo.cs
+c:\Users\QiFeng\FlowerInventory\obj\Debug\net9.0\FlowerInventory.csproj.CoreCompileInputs.cache
+c:\Users\QiFeng\FlowerInventory\obj\Debug\net9.0\FlowerInventory.MvcApplicationPartsAssemblyInfo.cache
+c:\Users\QiFeng\FlowerInventory\obj\Debug\net9.0\FlowerInventory.RazorAssemblyInfo.cache
+c:\Users\QiFeng\FlowerInventory\obj\Debug\net9.0\FlowerInventory.RazorAssemblyInfo.cs

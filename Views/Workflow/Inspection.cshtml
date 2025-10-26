@@ -1,0 +1,186 @@
+@model FlowerInventory.ViewModels.InspectionViewModel
+
+@{
+    ViewData["Title"] = "品檢作業";
+    var batch = Model.Batch;
+}
+
+<div class="container">
+    <div class="row">
+        <div class="col-md-8 mx-auto">
+            <div class="card shadow">
+                <div class="card-header bg-warning text-dark">
+                    <h4><i class="fas fa-clipboard-check"></i> 品檢作業</h4>
+                </div>
+                <div class="card-body">
+                    <!-- 批次資訊 -->
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <h6>批次資訊</h6>
+                            <p class="mb-1"><strong>批號:</strong> @batch.BatchNo</p>
+                            <p class="mb-1"><strong>花卉:</strong> @batch.Flower.Name</p>
+                            <p class="mb-1"><strong>進貨數量:</strong> @batch.QuantityReceived</p>
+                        </div>
+                        <div class="col-md-6">
+                            <h6>品檢參考</h6>
+                            <p class="mb-1"><strong>預期合格率:</strong> @(Model.ExpectedPassRate.ToString("P1"))</p>
+                            <p class="mb-1"><strong>預期合格數量:</strong> @Model.ExpectedPassQuantity</p>
+                            <p class="mb-1"><strong>收貨日期:</strong> @batch.ReceivedDate.ToString("yyyy/MM/dd")</p>
+                        </div>
+                    </div>
+
+                    <form asp-action="ProcessInspection" method="post">
+                        <input type="hidden" name="batchId" value="@batch.Id" />
+                        
+                        <div class="mb-3">
+                            <label for="passedQuantity" class="form-label">品檢合格數量</label>
+                            <input type="number" 
+                                    id="passedQuantity" 
+                                    name="passedQuantity" 
+                                    class="form-control" 
+                                    min="0" 
+                                    max="@batch.QuantityReceived"
+                                    value="@Model.ExpectedPassQuantity"
+                                    required />
+                            <small class="form-text text-muted">
+                                進貨數量: @batch.QuantityReceived | 
+                                不合格數量: <span id="failedQuantity">@(batch.QuantityReceived - Model.ExpectedPassQuantity)</span>
+                            </small>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="inspectionNote" class="form-label">品檢備註</label>
+                            <textarea id="inspectionNote" name="inspectionNote" class="form-control" rows="3" 
+                                    placeholder="請記錄品檢情況，如：損壞原因、品質狀況等..."></textarea>
+                        </div>
+
+                        <!-- 品檢統計 -->
+                        <div class="alert alert-info">
+                            <div class="row text-center">
+                                <div class="col-4">
+                                    <h5>@batch.QuantityReceived</h5>
+                                    <small>進貨數量</small>
+                                </div>
+                                <div class="col-4">
+                                    <h5 id="currentPassed">@Model.ExpectedPassQuantity</h5>
+                                    <small>合格數量</small>
+                                </div>
+                                <div class="col-4">
+                                    <h5 id="currentRate">@(Model.ExpectedPassRate.ToString("P1"))</h5>
+                                    <small>合格率</small>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="alert alert-warning">
+                            <h6><i class="fas fa-exclamation-triangle"></i> 作業流程</h6>
+                            <p class="mb-0">
+                                <strong>進貨(@batch.QuantityReceived) → 品檢(合格<span id="processPassed">@Model.ExpectedPassQuantity</span>) → 庫存(+) → ...</strong><br>
+                                品檢完成後，合格數量將立即加入庫存，並更新該花卉的品檢合格率。
+                            </p>
+                        </div>
+                        
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                            <button type="submit" class="btn btn-success">
+                                <i class="fas fa-check-circle"></i> 完成品檢
+                            </button>
+                            <a href="@Url.Action("Dashboard")" class="btn btn-secondary">稍後處理</a>
+                        </div>
+
+                        <!-- 庫存 -->
+                        <div class="alert alert-info mt-3">
+                            <h6><i class="fas fa-chart-line"></i> 庫存影響預覽</h6>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <strong>當前庫存:</strong> <span id="currentStock">載入中...</span>
+                            </div>
+                            <div class="col-md-6">
+                                <strong>品檢後庫存:</strong> <span id="afterInspectionStock">-</span>
+                            </div>
+                        </div>
+                        <div class="mt-2">
+                            <strong>安全庫存:</strong> <span id="safetyStock">載入中...</span> |
+                            <strong>狀態:</strong> <span id="stockStatus">-</span>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        // 載入當前庫存資料
+        async function loadStockData() {
+            try {
+                const flowerId = @batch.FlowerId;
+                const response = await fetch(`/Workflow/GetFlowerStockInfo?flowerId=${flowerId}`);
+                const data = await response.json();
+
+                if (data.success) {
+                    document.getElementById('currentStock').textContent = data.data.currentStock;
+                    document.getElementById('safetyStock').textContent = Math.ceil(data.data.safetyStock);
+                    updateStockStatus(data.data.currentStock);
+                }
+            } catch (error) {
+                console.error('載入庫存資料失敗', error);
+                document.getElementById('currentStock').textContent = '載入失敗';
+                document.getElementById('safetyStock').textContent = '載入失敗';
+            }
+        }
+
+        function updateStockStatus(currentStock) {
+            const passedInput = document.getElementById('passedQuantity');
+            const passed = parseInt(passedInput.value) || 0;
+            const safetyStock = parseFloat(document.getElementById('safetyStock').textContent);
+            const afterStock = currentStock + passed;
+
+            document.getElementById('afterInspectionStock').textContent = afterStock;
+
+            let status = '正常';
+            let statusClass = 'text-success';
+
+            if (afterStock === 0) {
+                status = '缺貨';
+                statusClass = 'text-danger';
+            } else if (afterStock < safetyStock) {
+                status = '需補貨';
+                statusClass = 'text-warning';
+            }
+
+            document.getElementById('stockStatus').textContent = status;
+            document.getElementById('stockStatus').className = statusClass;
+        }
+
+        // 更新品檢統計
+        function updateInspectionStats() {
+            const passedInput = document.getElementById('passedQuantity');
+            const receivedQty = @batch.QuantityReceived;
+            const passed = parseInt(passedInput.value) || 0;
+            
+            // 更新不合格數量
+            document.getElementById('failedQuantity').textContent = receivedQty - passed;
+            
+            // 更新合格率
+            const passRate = (passed / receivedQty * 100).toFixed(1);
+            document.getElementById('currentRate').textContent = passRate + '%';
+            document.getElementById('currentPassed').textContent = passed;
+            document.getElementById('processPassed').textContent = passed;
+
+            // 更新庫存狀態
+            const currentStock = parseInt(document.getElementById('currentStock').textContent);
+            if (!isNaN(currentStock)) {
+                updateStockStatus(currentStock);
+            }
+        }
+
+        // 事件監聽
+        document.addEventListener('DOMContentLoaded', function() {
+            loadStockData();
+            
+            const passedInput = document.getElementById('passedQuantity');
+            passedInput.addEventListener('input', updateInspectionStats);
+        });
+    </script>
+}

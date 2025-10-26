@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>
+		<!-- TemplateBeginEditable name="doctitle" -->
+		頁面標題
+		<!-- TemplateEndEditable -->
+	</title>
+    
+    <!-- TemplateBeginEditable name="head" -->
+    <!-- 放置頁面特定 CSS or meta 標籤 -->
+    <!-- TemplateEndEditable -->
+    
+    <link rel="stylesheet" href="/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="/css/site.css" />
+</head>
+<body>
+    <!-- TemplateBeginEditable name="Navigation" -->
+    <header>
+        <nav class="navbar navbar-expand-sm navbar-toggleable-sm navbar-dark bg-success border-bottom box-shadow mb-3">
+            <div class="container">
+                <a class="navbar-brand" href="/">🌸 花卉庫存管理系統</a>
+            </div>
+        </nav>
+    </header>
+    <!-- TemplateEndEditable -->
+
+    <div class="container">
+        <main role="main" class="pb-3">
+            <!-- TemplateBeginEditable name="Content" -->
+            <h1>主要內容區域</h1>
+            <p>在這裡放置頁面的主要內容。</p>
+            <!-- TemplateEndEditable -->
+        </main>
+    </div>
+
+    <!-- TemplateBeginEditable name="Scripts" -->
+    <script src="/lib/jquery/dist/jquery.min.js"></script>
+    <script src="/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- TemplateEndEditable -->
+</body>
+</html>
