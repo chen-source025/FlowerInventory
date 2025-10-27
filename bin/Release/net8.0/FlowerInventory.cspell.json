@@ -1,0 +1,18 @@
+{
+  "version": "0.2",
+  "language": "en",
+  "words": [
+    "contentfiles",
+    "buildtransitive",
+    "FEFO",
+    "DbContext",
+    "csproj",
+    "ViewModel"
+  ],
+  "ignorePaths": [
+    "bin/**",
+    "obj/**",
+    "**/*.dll",
+    "**/*.exe"
+  ]
+}
