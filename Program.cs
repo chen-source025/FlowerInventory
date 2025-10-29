@@ -2,14 +2,15 @@ using Microsoft.EntityFrameworkCore;
 using FlowerInventory.Models;
 using FlowerInventory.Services;
 using FlowerInventory.Middleware;
+using Npgsql;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // ========== 服務註冊 ==========
 
-// 加入 DbContext 服務
+// 加入 DbContext 服務 - 確保使用 PostgreSQL
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 // 加入自訂服務
 builder.Services.AddScoped<IEnhancedInventoryService, EnhancedInventoryService>();
@@ -38,16 +39,12 @@ if (app.Environment.IsDevelopment())
 {
     // 開發環境：顯示詳細錯誤
     app.UseDeveloperExceptionPage();
-
-    // 提供網頁介面執行資料庫遷移
     app.UseMigrationsEndPoint();
 }
 else
 {
     // 正式環境：顯示友善錯誤頁面
     app.UseExceptionHandler("/Home/Error");
-
-    // 啟用 HTTP Strict Transport Security
     app.UseHsts();
 }
 
@@ -69,19 +66,35 @@ using (var scope = app.Services.CreateScope())
     try
     {
         var context = services.GetRequiredService<ApplicationDbContext>();
-        context.Database.EnsureCreated();
         
-        Console.WriteLine("✅ 資料庫初始化完成！");
+        // 檢查資料庫連線
+        Console.WriteLine("🔍 檢查 PostgreSQL 連線...");
+        var canConnect = await context.Database.CanConnectAsync();
+        Console.WriteLine($"✅ PostgreSQL 連線狀態: {canConnect}");
         
-        // 可在這裡執行種子資料
-        // await SeedData.InitializeAsync(context);
-    }
+        if (canConnect)
+        {
+            // 確保資料庫建立並執行遷移
+            Console.WriteLine("🔄 執行資料庫遷移...");
+            await context.Database.MigrateAsync();
+
+            // 植入種子資料
+            Console.WriteLine("🌱 植入種子資料...");
+            await context.SeedDataAsync();
+
+            Console.WriteLine("✅ PostgreSQL 資料庫初始化完成！");
+        }
+        else
+        {
+            Console.WriteLine("❌ 無法連接到 PostgreSQL 資料庫");
+        }
+    }    
     catch (Exception ex)
     {
         var logger = services.GetRequiredService<ILogger<Program>>();
         logger.LogError(ex, "❌ 資料庫建立或初始化時發生錯誤");
+        Console.WriteLine($"❌ 資料庫錯誤: {ex.Message}");
     }
 }
 
 app.Run();
-// ========== 結束 ==========

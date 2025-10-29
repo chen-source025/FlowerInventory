@@ -48,11 +48,28 @@ namespace FlowerInventory.Models
 
             modelBuilder.Entity<Transaction>()
                 .HasIndex(t => new { t.FlowerId, t.TransactionDate });
+        }
 
-            // 種子資料
-            modelBuilder.Entity<Flower>().HasData(GetFlowerSeedData());
-            modelBuilder.Entity<Batch>().HasData(GetBatchSeedData());
-            modelBuilder.Entity<Transaction>().HasData(GetTransactionSeedData());
+        public async Task SeedDataAsync()
+        {
+            // 只有當沒有資料時才植入
+            if (!Flowers.Any())
+            {
+                await Flowers.AddRangeAsync(GetFlowerSeedData());
+                await SaveChangesAsync();
+            }
+
+            if (!Batches.Any())
+            {
+                await Batches.AddRangeAsync(GetBatchSeedData());
+                await SaveChangesAsync();
+            }
+
+            if (!Transactions.Any())
+            {
+                await Transactions.AddRangeAsync(GetTransactionSeedData());
+                await SaveChangesAsync();
+            }
         }
 
         private static List<Flower> GetFlowerSeedData()

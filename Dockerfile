@@ -2,6 +2,10 @@
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /app
 
+# 複製專案檔並還復套件
+COPY *.csproj ./
+RUN dotnet restore
+
 # 複製所有檔案並建置
 COPY . ./
 RUN dotnet publish -c Release -o out
@@ -10,6 +14,10 @@ RUN dotnet publish -c Release -o out
 FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS runtime
 WORKDIR /app
 COPY --from=build /app/out ./
+
+# 設定環境變數
+ENV ASPNETCORE_URLS=http://*:$PORT
+ENV ASPNETCORE_ENVIRONMENT=Production
 
 # 啟動應用程式
 ENTRYPOINT ["dotnet", "FlowerInventory.dll"]
