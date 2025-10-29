@@ -66,29 +66,47 @@ using (var scope = app.Services.CreateScope())
     try
     {
         var context = services.GetRequiredService<ApplicationDbContext>();
-        
-        // 檢查資料庫連線
-        Console.WriteLine("🔍 檢查 PostgreSQL 連線...");
-        var canConnect = await context.Database.CanConnectAsync();
-        Console.WriteLine($"✅ PostgreSQL 連線狀態: {canConnect}");
-        
-        if (canConnect)
-        {
-            // 確保資料庫建立並執行遷移
-            Console.WriteLine("🔄 執行資料庫遷移...");
-            await context.Database.MigrateAsync();
 
-            // 植入種子資料
-            Console.WriteLine("🌱 植入種子資料...");
-            await context.SeedDataAsync();
+        // 重試機制
+        var retryCount = 0;
+        const int maxRetries = 5;
 
-            Console.WriteLine("✅ PostgreSQL 資料庫初始化完成！");
-        }
-        else
+        while (retryCount < maxRetries)
         {
-            Console.WriteLine("❌ 無法連接到 PostgreSQL 資料庫");
+            try
+            {
+                Console.WriteLine($"🔍 檢查 PostgreSQL 連線... (嘗試 {retryCount + 1}/{maxRetries})");
+                var canConnect = await context.Database.CanConnectAsync();
+
+                if (canConnect)
+                {
+                    Console.WriteLine("✅ PostgreSQL 連線成功！");
+
+                    // 確保資料庫建立並執行遷移
+                    Console.WriteLine("🔄 執行資料庫遷移...");
+                    await context.Database.MigrateAsync();
+
+                    // 植入種子資料
+                    Console.WriteLine("🌱 植入種子資料...");
+                    await context.SeedDataAsync();
+
+                    Console.WriteLine("✅ PostgreSQL 資料庫初始化完成！");
+                    break;
+                }
+            }
+            catch (Exception ex) when (retryCount < maxRetries - 1)
+            {
+                retryCount++;
+                Console.WriteLine($"❌ 連線失敗，{ex.Message}，等待 5 秒後重試...");
+                await Task.Delay(5000);
+            }
         }
-    }    
+
+        if (retryCount == maxRetries)
+        {
+            Console.WriteLine("❌ 無法連接到 PostgreSQL 資料庫，請檢查連線設定");
+        }
+    }
     catch (Exception ex)
     {
         var logger = services.GetRequiredService<ILogger<Program>>();
