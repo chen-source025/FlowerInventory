@@ -9,6 +9,7 @@ using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using FlowerInventory.Models;
 using FlowerInventory.Utilities;
+using Npgsql;
 
 namespace FlowerInventory.Services
 {
