@@ -8,7 +8,11 @@ var builder = WebApplication.CreateBuilder(args);
 
 // ========== 服務註冊 ==========
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+{
+    var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+    Console.WriteLine($"🔍 連線字串: {connectionString?.Substring(0, Math.Min(50, connectionString.Length))}...");
+    options.UseNpgsql(connectionString);
+});
 
 builder.Services.AddScoped<IEnhancedInventoryService, EnhancedInventoryService>();
 builder.Services.AddControllersWithViews();
@@ -16,11 +20,7 @@ builder.Services.AddControllersWithViews();
 var app = builder.Build();
 
 // ========== HTTP 請求管道 ==========
-if (app.Environment.IsDevelopment())
-{
-    app.UseDeveloperExceptionPage();
-}
-else
+if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Home/Error");
     app.UseHsts();
@@ -36,40 +36,58 @@ app.MapControllerRoute(
     pattern: "{controller=Home}/{action=Index}/{id?}");
 
 // ========== 資料庫初始化 ==========
-
-using (var scope = app.Services.CreateScope())
+try
 {
-    var services = scope.ServiceProvider;
-    try
+    using (var scope = app.Services.CreateScope())
     {
+        var services = scope.ServiceProvider;
         var context = services.GetRequiredService<ApplicationDbContext>();
 
         Console.WriteLine("🔍 嘗試連接 PostgreSQL...");
 
+        // 等待資料庫準備好
+        await Task.Delay(2000);     // 給 Render 資料庫一些啟動時間
+        
         var canConnect = await context.Database.CanConnectAsync();
-
+        
         if (canConnect)
         {
             Console.WriteLine("✅ PostgreSQL 連線成功！");
             
-            // 執行遷移
-            await context.Database.MigrateAsync();
-            Console.WriteLine("✅ 資料庫遷移完成");
+            // 檢查遷移
+            var pendingMigrations = await context.Database.GetPendingMigrationsAsync();
+            if (pendingMigrations.Any())
+            {
+                Console.WriteLine($"🔄 執行遷移: {string.Join(", ", pendingMigrations)}");
+                await context.Database.MigrateAsync();
+                Console.WriteLine("✅ 資料庫遷移完成");
+            }
+            else
+            {
+                Console.WriteLine("✅ 無待處理遷移");
+            }
             
-            // 植入種子資料
-            await context.SeedDataAsync();
-            Console.WriteLine("✅ 種子資料植入完成");
+            // 嘗試植入種子資料
+            try 
+            {
+                await context.SeedDataAsync();
+                Console.WriteLine("✅ 種子資料植入完成");
+            }
+            catch (Exception seedEx)
+            {
+                Console.WriteLine($"⚠️ 種子資料植入警告: {seedEx.Message}");
+            }
         }
         else
         {
-            Console.WriteLine("❌ 無法連接到資料庫，但應用程式繼續啟動");
+            Console.WriteLine("❌ 無法連接到資料庫");
         }
     }
-    catch (Exception ex)
-    {
-        Console.WriteLine($"⚠️ 資料庫初始化警告: {ex.Message}");
-        Console.WriteLine("應用程式將繼續啟動，但資料庫功能可能受限");
-    }
+}
+catch (Exception ex)
+{
+    Console.WriteLine($"⚠️ 資料庫初始化警告: {ex.Message}");
+    Console.WriteLine("應用程式將繼續啟動，但資料庫功能可能受限");
 }
 
 // ========== 啟動應用程式 ==========

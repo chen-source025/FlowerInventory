@@ -350,7 +350,8 @@
 @section Styles {
     <style>
         /* 行動裝置專用樣式 */
-        @@media (max-width: 768px) {
+        @@media (max-width: 768px) 
+        {
             .mobile-stat-card {
                 margin-bottom: 1rem;
                 text-align: center;
@@ -412,7 +413,8 @@
 @section Scripts {
     <script>
         // 行動裝置專用功能
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', function() 
+        {
             // 檢測行動裝置
             const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
             
@@ -447,7 +449,8 @@
             // 下拉選單優化
             const dropdowns = document.querySelectorAll('.dropdown');
             dropdowns.forEach(dropdown => {
-                dropdown.addEventListener('show.bs.dropdown', function() {
+                dropdown.addEventListener('show.bs.dropdown', function() 
+                {
                     if (isMobile) {
                         const dropdownMenu = this.querySelector('.dropdown-menu');
                         dropdownMenu.style.position = 'fixed';
