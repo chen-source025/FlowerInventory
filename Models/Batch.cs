@@ -25,7 +25,7 @@ public class Batch
     [Required(ErrorMessage = "必須輸入收貨日期")]
     [Display(Name = "收貨日期")]
     [DataType(DataType.Date)]
-    public DateTime ReceivedDate { get; set; } = DateTime.Now;
+    public DateTime ReceivedDate { get; set; } = DateTime.UtcNow;
 
     [Display(Name = "到期日")]
     [DataType(DataType.Date)]
@@ -41,7 +41,7 @@ public class Batch
 
     [Display(Name = "建立日期")]
     [DataType(DataType.DateTime)]
-    public DateTime CreatedDate { get; set; } = DateTime.Now;
+    public DateTime CreatedDate { get; set; } = DateTime.UtcNow;
 
     // 導航屬性（非 null，使用 null-forgiving operator）
     [ForeignKey("FlowerId")]
@@ -93,7 +93,7 @@ public class Batch
     {
         return Status == BatchStatus.Received &&
                 QuantityPassed > 0 &&
-                ReceivedDate <= DateTime.Now;
+                ReceivedDate <= DateTime.UtcNow;
     }
 
     public void MarkAsInspected()

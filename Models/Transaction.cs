@@ -25,7 +25,7 @@ namespace FlowerInventory.Models
         [Required(ErrorMessage = "交易日期是必填欄位")]
         [Display(Name = "交易日期")]
         [DataType(DataType.DateTime)]
-        public DateTime TransactionDate { get; set; } = DateTime.Now;
+        public DateTime TransactionDate { get; set; } = DateTime.UtcNow;
 
         [Display(Name = "備註")]
         [StringLength(400)]

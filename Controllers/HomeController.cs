@@ -61,7 +61,7 @@ namespace FlowerInventory.Controllers
                 Version = "1.0.0",
                 Framework = ".NET 8.0",
                 Database = "SQL Server",
-                LastUpdated = DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss"),
+                LastUpdated = DateTime.UtcNow.ToString("yyyy/MM/dd HH:mm:ss"),
                 Developer = "花卉庫存管理系統團隊",
                 Environment = HttpContext.Request.Host.Host.Contains("localhost") ? "開發環境" : "生產環境"
             };
@@ -88,7 +88,7 @@ namespace FlowerInventory.Controllers
                     TotalValue = inventoryStatus.Sum(i => i.TotalValue).ToString("C0"),
                     ExpiringSoon = inventoryStatus.Sum(i => i.ExpiringBatches.Count(b => b.IsExpiringSoon)),
                     OutOfStock = inventoryStatus.Count(i => i.CurrentStock == 0),
-                    LastUpdated = DateTime.Now.ToString("HH:mm:ss")
+                    LastUpdated = DateTime.UtcNow.ToString("HH:mm:ss")
                 };
 
                 _logger.LogDebug("快速統計API呼叫成功");
@@ -116,8 +116,8 @@ namespace FlowerInventory.Controllers
                     Database = dbConnected ? "Connected" : "Disconnected",
                     FlowersCount = flowerCount,
                     Service = serviceStatus,
-                    Timestamp = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"),
-                    Uptime = DateTime.Now - Process.GetCurrentProcess().StartTime
+                    Timestamp = DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss"),
+                    Uptime = DateTime.UtcNow - Process.GetCurrentProcess().StartTime
                 };
 
                 _logger.LogInformation("健康檢查通過");

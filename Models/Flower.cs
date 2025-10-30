@@ -63,7 +63,7 @@ namespace FlowerInventory.Models
 
         [Display(Name = "建立日期")]
         [DataType(DataType.DateTime)]
-        public DateTime CreatedDate { get; set; } = DateTime.Now;
+        public DateTime CreatedDate { get; set; } = DateTime.UtcNow;
 
         public virtual ICollection<Batch> Batches { get; set; } = new List<Batch>();
         public virtual ICollection<Transaction> Transactions { get; set; } = new List<Transaction>();

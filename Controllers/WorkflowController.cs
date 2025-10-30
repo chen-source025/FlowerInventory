@@ -99,7 +99,7 @@ namespace FlowerInventory.Controllers
                 // 初始狀態設定
                 batch.QuantityPassed = 0; // 等待品檢
                 batch.Status = BatchStatus.Received;
-                batch.CreatedDate = DateTime.Now;
+                batch.CreatedDate = DateTime.UtcNow;
 
                 _context.Add(batch);
                 await _context.SaveChangesAsync();
@@ -320,7 +320,7 @@ namespace FlowerInventory.Controllers
                     FlowerId = model.FlowerId,
                     ChangeQty = -model.Quantity,
                     TransactionType = TransactionType.Out,
-                    TransactionDate = DateTime.Now,
+                    TransactionDate = DateTime.UtcNow,
                     Note = $"出貨: {model.Quantity} - {model.Reason}" +
                         (string.IsNullOrEmpty(model.CustomerName) ? "" : $" (客戶: {model.CustomerName})")
                 };
@@ -632,7 +632,7 @@ namespace FlowerInventory.Controllers
         private string GenerateBatchNumber(Flower flower)
         {
             var prefix = flower.Name.Length > 0 ? flower.Name.Substring(0, 1).ToUpper() : "F";
-            var timestamp = DateTime.Now.ToString("yyyyMMddHHmmss");
+            var timestamp = DateTime.UtcNow.ToString("yyyyMMddHHmmss");
             return $"{prefix}{timestamp}";
         }
 

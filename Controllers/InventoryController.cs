@@ -145,7 +145,7 @@ namespace FlowerInventory.Controllers
                     .AsNoTracking()
                     .Include(b => b.Flower)
                     .Where(b => b.ExpiryDate.HasValue &&
-                            b.ExpiryDate.Value <= DateTime.Now.AddDays(7) &&
+                            b.ExpiryDate.Value <= DateTime.UtcNow.AddDays(7) &&
                             b.QuantityPassed > 0)
                     .OrderBy(b => b.ExpiryDate)
                     .ToListAsync(cancellationToken);
@@ -184,7 +184,7 @@ namespace FlowerInventory.Controllers
                 var transactions = await _context.Transactions
                     .AsNoTracking()
                     .Include(t => t.Flower)
-                    .Where(t => t.TransactionDate >= DateTime.Now.AddDays(-30))
+                    .Where(t => t.TransactionDate >= DateTime.UtcNow.AddDays(-30))
                     .OrderBy(t => t.TransactionDate)
                     .ToListAsync(cancellationToken);
 
@@ -248,7 +248,7 @@ namespace FlowerInventory.Controllers
             {
                 var transactions = await _context.Transactions
                     .AsNoTracking()
-                    .Where(t => t.TransactionDate >= DateTime.Now.AddDays(-30))
+                    .Where(t => t.TransactionDate >= DateTime.UtcNow.AddDays(-30))
                     .OrderBy(t => t.TransactionDate)
                     .ToListAsync(cancellationToken);
 
@@ -486,7 +486,7 @@ namespace FlowerInventory.Controllers
         public List<Batch> ExpiringBatches { get; set; } = new();
         public int TotalExpiringQuantity { get; set; }
         public DateTime EarliestExpiryDate { get; set; }
-        public bool IsCritical => EarliestExpiryDate <= DateTime.Now.AddDays(3);
+        public bool IsCritical => EarliestExpiryDate <= DateTime.UtcNow.AddDays(3);
         public string Status => IsCritical ? "緊急" : "注意";
 
         public decimal TotalValue => TotalExpiringQuantity * (Flower.Price ?? 0);

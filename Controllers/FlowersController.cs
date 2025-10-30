@@ -105,7 +105,7 @@ namespace FlowerInventory.Controllers
                     return View(flower);
                 }
 
-                flower.CreatedDate = DateTime.Now;
+                flower.CreatedDate = DateTime.UtcNow;
                 _context.Add(flower);
                 await _context.SaveChangesAsync();
 

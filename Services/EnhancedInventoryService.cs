@@ -48,7 +48,7 @@ namespace FlowerInventory.Services
                     .AsNoTracking()
                     .Include(f => f.Batches.Where(b => b.Status == BatchStatus.Active))
                     .Include(f => f.Transactions.Where(t =>
-                        t.TransactionDate >= DateTime.Now.AddDays(-InventoryConstants.SafetyStock.DEMAND_LOOKBACK_DAYS)))
+                        t.TransactionDate >= DateTime.UtcNow.AddDays(-InventoryConstants.SafetyStock.DEMAND_LOOKBACK_DAYS)))
                     .ToListAsync(cancellationToken);
 
                 _logger.LogInformation("取得 {FlowerCount} 筆花卉資料進行庫存狀態計算", flowers.Count);
@@ -134,7 +134,7 @@ namespace FlowerInventory.Services
                     WeeklyDemand = weeklyDemand,
                     NeedReplenishment = currentStock < Math.Ceiling(safetyStock),
                     Success = true,
-                    RecommendedOrderDate = DateTime.Now,
+                    RecommendedOrderDate = DateTime.UtcNow,
                     RecommendationLevel = string.Empty,
                     Reason = string.Empty
                 };
@@ -247,7 +247,7 @@ namespace FlowerInventory.Services
                     BatchId = batchId,
                     ChangeQty = passedQuantity,
                     TransactionType = TransactionType.In,
-                    TransactionDate = DateTime.Now,
+                    TransactionDate = DateTime.UtcNow,
                     Note = $"品檢合格入庫: {passedQuantity}/{batch.QuantityReceived} - {note}"
                 };
                 _context.Transactions.Add(adjustmentTransaction);
@@ -262,14 +262,14 @@ namespace FlowerInventory.Services
                     PassRate = passRate,
                     Message = $"{InventoryConstants.SuccessMessages.INSPECTION_COMPLETED}: {passedQuantity}/{batch.QuantityReceived} 合格 ({(passRate * 100):F1}%)",
                     Success = true,
-                    InspectionDate = DateTime.Now,
+                    InspectionDate = DateTime.UtcNow,
                     BatchNumber = batch.BatchNo ?? string.Empty,
                     FlowerName = batch.Flower.Name
                 };
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "處理品檢作業時發生錯誤，批次ID: {BatchId}", batchId);
+                _logger.LogError(ex, "處理品檢作業時發生錯誤, 批次ID: {BatchId}", batchId);
                 return new InspectionResult
                 {
                     BatchId = batchId,
@@ -278,7 +278,7 @@ namespace FlowerInventory.Services
                     PassRate = 0,
                     Message = $"{InventoryConstants.ErrorMessages.CALCULATION_ERROR}: {ex.Message}",
                     Success = false,
-                    InspectionDate = DateTime.Now
+                    InspectionDate = DateTime.UtcNow
                 };
             }
         }
@@ -305,7 +305,7 @@ namespace FlowerInventory.Services
                     FlowerId = flowerId,
                     ChangeQty = adjustmentQty,
                     TransactionType = TransactionType.Adjust,
-                    TransactionDate = DateTime.Now,
+                    TransactionDate = DateTime.UtcNow,
                     Note = $"庫存調整: {adjustmentQty} - {reason}"
                 };
                 _context.Transactions.Add(transaction);
@@ -324,7 +324,7 @@ namespace FlowerInventory.Services
                     Reason = reason,
                     Success = true,
                     Message = $"{InventoryConstants.SuccessMessages.STOCK_ADJUSTED}: {oldStock} → {newStock}",
-                    AdjustmentDate = DateTime.Now
+                    AdjustmentDate = DateTime.UtcNow
                 };
             }
             catch (Exception ex)
@@ -340,7 +340,7 @@ namespace FlowerInventory.Services
                     Reason = reason,
                     Success = false,
                     Message = $"{InventoryConstants.ErrorMessages.CALCULATION_ERROR}: {ex.Message}",
-                    AdjustmentDate = DateTime.Now
+                    AdjustmentDate = DateTime.UtcNow
                 };
             }
         }
@@ -363,7 +363,7 @@ namespace FlowerInventory.Services
 
                 return new InventoryReport
                 {
-                    ReportDate = DateTime.Now,
+                    ReportDate = DateTime.UtcNow,
                     TotalFlowers = inventoryStatus.Count,
                     TotalItems = inventoryStatus.Sum(i => i.CurrentStock),
                     TotalValue = inventoryStatus.Sum(i => i.TotalValue),
@@ -410,7 +410,7 @@ namespace FlowerInventory.Services
 
                 var result = new ABCReport
                 {
-                    ReportDate = DateTime.Now,
+                    ReportDate = DateTime.UtcNow,
                     TotalValue = totalValue
                 };
 
@@ -529,13 +529,13 @@ namespace FlowerInventory.Services
         {
             try
             {
-                var since = DateTime.Now.Date.AddDays(-InventoryConstants.SafetyStock.DEMAND_LOOKBACK_DAYS);
+                var since = DateTime.UtcNow.Date.AddDays(-InventoryConstants.SafetyStock.DEMAND_LOOKBACK_DAYS);
 
                 var transactions = await _context.Transactions
                     .AsNoTracking()
                     .Where(t => t.FlowerId == flowerId &&
-                               t.TransactionType == TransactionType.Out &&
-                               t.TransactionDate >= since)
+                                t.TransactionType == TransactionType.Out &&
+                                t.TransactionDate >= since)
                     .OrderBy(t => t.TransactionDate)
                     .ToListAsync(cancellationToken);
 
@@ -555,7 +555,7 @@ namespace FlowerInventory.Services
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "計算每週需求時發生錯誤，花卉ID: {FlowerId}", flowerId);
+                _logger.LogError(ex, "計算每週需求時發生錯誤, 花卉ID: {FlowerId}", flowerId);
                 return GetDefaultWeeklyDemand(flowerId);
             }
         }
@@ -658,7 +658,7 @@ namespace FlowerInventory.Services
         {
             try
             {
-                var since = DateTime.Now.Date.AddDays(-InventoryConstants.SafetyStock.DEMAND_LOOKBACK_DAYS);
+                var since = DateTime.UtcNow.Date.AddDays(-InventoryConstants.SafetyStock.DEMAND_LOOKBACK_DAYS);
 
                 var transactions = await _context.Transactions
                     .AsNoTracking()
@@ -689,7 +689,7 @@ namespace FlowerInventory.Services
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "計算需求標準差時發生錯誤，花卉ID: {FlowerId}", flowerId);
+                _logger.LogError(ex, "計算需求標準差時發生錯誤, 花卉ID: {FlowerId}", flowerId);
                 return GetDefaultStdDevFallback(flowerId);
             }
         }
@@ -816,7 +816,7 @@ namespace FlowerInventory.Services
                     .AsNoTracking()
                     .Where(b => b.FlowerId == flowerId &&
                             b.ExpiryDate.HasValue &&
-                            b.ExpiryDate.Value <= DateTime.Now.AddDays(daysThreshold) &&
+                            b.ExpiryDate.Value <= DateTime.UtcNow.AddDays(daysThreshold) &&
                             b.QuantityPassed > 0)
                     .OrderBy(b => b.ExpiryDate)
                     .ToListAsync(cancellationToken);

@@ -16,7 +16,18 @@ namespace FlowerInventory.Models
         {
             base.OnModelCreating(modelBuilder);
 
-            // 設定索引提升效能
+            // 統一時間 類型映射
+            foreach (var entityType in modelBuilder.Model.GetEntityTypes())
+            {
+                foreach (var property in entityType.GetProperties())
+                {
+                    if (property.ClrType == typeof(DateTime) || property.ClrType == typeof(DateTime?))
+                    {
+                        property.SetColumnType("timestamp with time zone");
+                    }
+                }
+            }
+
             modelBuilder.Entity<Flower>()
                 .HasIndex(f => f.Name)
                 .IsUnique();
@@ -89,7 +100,7 @@ namespace FlowerInventory.Models
                     SeasonalFactor = 1.0m,
                     InspectionPassRate = 0.95m,
                     LeadTimeDays = 7,
-                    CreatedDate = DateTime.Now
+                    CreatedDate = DateTime.UtcNow
                 },
                 new Flower
                 {
@@ -103,7 +114,7 @@ namespace FlowerInventory.Models
                     SeasonalFactor = 1.0m,
                     InspectionPassRate = 0.85m,
                     LeadTimeDays = 7,
-                    CreatedDate = DateTime.Now
+                    CreatedDate = DateTime.UtcNow
                 },
 
                 // 宗教型 (4種)
@@ -119,7 +130,7 @@ namespace FlowerInventory.Models
                     SeasonalFactor = 1.2m,
                     InspectionPassRate = 0.80m,
                     LeadTimeDays = 7,
-                    CreatedDate = DateTime.Now
+                    CreatedDate = DateTime.UtcNow
                 },
                 new Flower
                 {
@@ -133,7 +144,7 @@ namespace FlowerInventory.Models
                     SeasonalFactor = 1.3m,
                     InspectionPassRate = 0.82m,
                     LeadTimeDays = 7,
-                    CreatedDate = DateTime.Now
+                    CreatedDate = DateTime.UtcNow
                 },
                 new Flower
                 {
@@ -147,7 +158,7 @@ namespace FlowerInventory.Models
                     SeasonalFactor = 1.1m,
                     InspectionPassRate = 0.90m,
                     LeadTimeDays = 7,
-                    CreatedDate = DateTime.Now
+                    CreatedDate = DateTime.UtcNow
                 },
                 new Flower
                 {
@@ -161,7 +172,7 @@ namespace FlowerInventory.Models
                     SeasonalFactor = 1.2m,
                     InspectionPassRate = 0.78m,
                     LeadTimeDays = 7,
-                    CreatedDate = DateTime.Now
+                    CreatedDate = DateTime.UtcNow
                 },
 
                 // 季節性 (3種)
@@ -177,7 +188,7 @@ namespace FlowerInventory.Models
                     SeasonalFactor = 1.5m,
                     InspectionPassRate = 0.75m,
                     LeadTimeDays = 7,
-                    CreatedDate = DateTime.Now
+                    CreatedDate = DateTime.UtcNow
                 },
                 new Flower
                 {
@@ -191,7 +202,7 @@ namespace FlowerInventory.Models
                     SeasonalFactor = 1.4m,
                     InspectionPassRate = 0.80m,
                     LeadTimeDays = 7,
-                    CreatedDate = DateTime.Now
+                    CreatedDate = DateTime.UtcNow
                 },
                 new Flower
                 {
@@ -205,7 +216,7 @@ namespace FlowerInventory.Models
                     SeasonalFactor = 1.6m,
                     InspectionPassRate = 0.70m,
                     LeadTimeDays = 7,
-                    CreatedDate = DateTime.Now
+                    CreatedDate = DateTime.UtcNow
                 },
 
                 // 流行性 (5種)
@@ -221,7 +232,7 @@ namespace FlowerInventory.Models
                     SeasonalFactor = 1.0m,
                     InspectionPassRate = 0.95m,
                     LeadTimeDays = 7,
-                    CreatedDate = DateTime.Now
+                    CreatedDate = DateTime.UtcNow
                 },
                 new Flower
                 {
@@ -235,7 +246,7 @@ namespace FlowerInventory.Models
                     SeasonalFactor = 1.0m,
                     InspectionPassRate = 0.92m,
                     LeadTimeDays = 7,
-                    CreatedDate = DateTime.Now
+                    CreatedDate = DateTime.UtcNow
                 },
                 new Flower
                 {
@@ -249,7 +260,7 @@ namespace FlowerInventory.Models
                     SeasonalFactor = 1.2m,
                     InspectionPassRate = 0.75m,
                     LeadTimeDays = 7,
-                    CreatedDate = DateTime.Now
+                    CreatedDate = DateTime.UtcNow
                 },
                 new Flower
                 {
@@ -263,7 +274,7 @@ namespace FlowerInventory.Models
                     SeasonalFactor = 1.8m,
                     InspectionPassRate = 0.70m,
                     LeadTimeDays = 7,
-                    CreatedDate = DateTime.Now
+                    CreatedDate = DateTime.UtcNow
                 },
                 new Flower
                 {
@@ -277,7 +288,7 @@ namespace FlowerInventory.Models
                     SeasonalFactor = 1.0m,
                     InspectionPassRate = 0.98m,
                     LeadTimeDays = 7,
-                    CreatedDate = DateTime.Now
+                    CreatedDate = DateTime.UtcNow
                 },
             };
         }
@@ -294,11 +305,11 @@ namespace FlowerInventory.Models
                     BatchNo = "GG2024001",
                     QuantityReceived = 50,
                     QuantityPassed = 48,
-                    ReceivedDate = DateTime.Now.AddDays(-5),
-                    ExpiryDate = DateTime.Now.AddDays(25),
+                    ReceivedDate = DateTime.UtcNow.AddDays(-5),
+                    ExpiryDate = DateTime.UtcNow.AddDays(25),
                     InspectionNote = "品檢良好,僅2株葉片受損",
                     Status = BatchStatus.Active,
-                    CreatedDate = DateTime.Now.AddDays(-5)
+                    CreatedDate = DateTime.UtcNow.AddDays(-5)
                 },
                 new Batch
                 {
@@ -307,11 +318,11 @@ namespace FlowerInventory.Models
                     BatchNo = "AN2024001",
                     QuantityReceived = 30,
                     QuantityPassed = 25,
-                    ReceivedDate = DateTime.Now.AddDays(-3),
-                    ExpiryDate = DateTime.Now.AddDays(11),
+                    ReceivedDate = DateTime.UtcNow.AddDays(-3),
+                    ExpiryDate = DateTime.UtcNow.AddDays(11),
                     InspectionNote = "5株花瓣有瑕疵",
                     Status = BatchStatus.Active,
-                    CreatedDate = DateTime.Now.AddDays(-3)
+                    CreatedDate = DateTime.UtcNow.AddDays(-3)
                 },
                 new Batch
                 {
@@ -320,11 +331,11 @@ namespace FlowerInventory.Models
                     BatchNo = "DE2024001",
                     QuantityReceived = 20,
                     QuantityPassed = 14,
-                    ReceivedDate = DateTime.Now.AddDays(-1),
-                    ExpiryDate = DateTime.Now.AddDays(11),
+                    ReceivedDate = DateTime.UtcNow.AddDays(-1),
+                    ExpiryDate = DateTime.UtcNow.AddDays(11),
                     InspectionNote = "蘭花較為脆弱,6株運輸受損",
                     Status = BatchStatus.Active,
-                    CreatedDate = DateTime.Now.AddDays(-1)
+                    CreatedDate = DateTime.UtcNow.AddDays(-1)
                 },
                 new Batch
                 {
@@ -333,11 +344,11 @@ namespace FlowerInventory.Models
                     BatchNo = "LV2024001",
                     QuantityReceived = 40,
                     QuantityPassed = 32,
-                    ReceivedDate = DateTime.Now.AddDays(-2),
-                    ExpiryDate = DateTime.Now.AddDays(7),
+                    ReceivedDate = DateTime.UtcNow.AddDays(-2),
+                    ExpiryDate = DateTime.UtcNow.AddDays(7),
                     InspectionNote = "8株季節性花卉品質較差",
                     Status = BatchStatus.Active,
-                    CreatedDate = DateTime.Now.AddDays(-2)
+                    CreatedDate = DateTime.UtcNow.AddDays(-2)
                 },
             };
         }
@@ -355,7 +366,7 @@ namespace FlowerInventory.Models
                     BatchId = 1,
                     ChangeQty = 48,
                     TransactionType = TransactionType.In,
-                    TransactionDate = DateTime.Now.AddDays(-5),
+                    TransactionDate = DateTime.UtcNow.AddDays(-5),
                     Note = "品檢合格入庫",
                 },
                 new Transaction
@@ -365,7 +376,7 @@ namespace FlowerInventory.Models
                     BatchId = 2,
                     ChangeQty = 25,
                     TransactionType = TransactionType.In,
-                    TransactionDate = DateTime.Now.AddDays(-3),
+                    TransactionDate = DateTime.UtcNow.AddDays(-3),
                     Note = "品檢合格入庫",
                 },
                 new Transaction
@@ -375,7 +386,7 @@ namespace FlowerInventory.Models
                     BatchId = 3,
                     ChangeQty = 14,
                     TransactionType = TransactionType.In,
-                    TransactionDate = DateTime.Now.AddDays(-1),
+                    TransactionDate = DateTime.UtcNow.AddDays(-1),
                     Note = "品檢合格入庫",
                 },
                 new Transaction
@@ -385,7 +396,7 @@ namespace FlowerInventory.Models
                     BatchId = 4,
                     ChangeQty = 32,
                     TransactionType = TransactionType.In,
-                    TransactionDate = DateTime.Now.AddDays(-2),
+                    TransactionDate = DateTime.UtcNow.AddDays(-2),
                     Note = "品檢合格入庫",
                 },
 
@@ -397,7 +408,7 @@ namespace FlowerInventory.Models
                     BatchId = 1,
                     ChangeQty = -10,
                     TransactionType = TransactionType.Out,
-                    TransactionDate = DateTime.Now.AddDays(-2),
+                    TransactionDate = DateTime.UtcNow.AddDays(-2),
                     Note = "銷售出貨",
                 },
                 new Transaction
@@ -407,7 +418,7 @@ namespace FlowerInventory.Models
                     BatchId = 2,
                     ChangeQty = -8,
                     TransactionType = TransactionType.Out,
-                    TransactionDate = DateTime.Now.AddDays(-1),
+                    TransactionDate = DateTime.UtcNow.AddDays(-1),
                     Note = "銷售出貨",
                 },
                 new Transaction
@@ -417,7 +428,7 @@ namespace FlowerInventory.Models
                     BatchId = 3,
                     ChangeQty = -5,
                     TransactionType = TransactionType.Out,
-                    TransactionDate = DateTime.Now.AddDays(-1),
+                    TransactionDate = DateTime.UtcNow.AddDays(-1),
                     Note = "銷售出貨",
                 },
                 new Transaction
@@ -427,7 +438,7 @@ namespace FlowerInventory.Models
                     BatchId = 4,
                     ChangeQty = -12,
                     TransactionType = TransactionType.Out,
-                    TransactionDate = DateTime.Now,
+                    TransactionDate = DateTime.UtcNow,
                     Note = "銷售出貨",
                 },
             };
