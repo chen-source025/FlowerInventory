@@ -19,5 +19,8 @@ COPY --from=build /app/out ./
 ENV ASPNETCORE_URLS=http://*:$PORT
 ENV ASPNETCORE_ENVIRONMENT=Production
 
+# 暴露端口（可選，Render 會自動處理）
+EXPOSE 8080
+
 # 啟動應用程式
 ENTRYPOINT ["dotnet", "FlowerInventory.dll"]

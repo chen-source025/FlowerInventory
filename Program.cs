@@ -115,4 +115,10 @@ using (var scope = app.Services.CreateScope())
     }
 }
 
+// ========== 添加端口綁定 ==========
+// 解決 Render 部署的問題
+var port = Environment.GetEnvironmentVariable("PORT") ?? "8080";
+app.Urls.Add($"http://0.0.0.0:{port}");
+
+// ========== 啟動應用程式 ==========
 app.Run();
