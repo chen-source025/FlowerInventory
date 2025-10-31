@@ -81,7 +81,7 @@
         function calculateExpiryDate() 
         {
             const flowerSelect = document.getElementById('FlowerId');
-            const receiveDate = document.getElementById('ReceiveDate');
+            const receivedDateInput = document.getElementById('ReceivedDate');
             const expiryDate = document.getElementById('expiryDate');
 
             if(flowerSelect.value && receivedDate.value)
@@ -95,5 +95,8 @@
 
         document.getElementById('FlowerId').addEventListener('change', calculateExpiryDate);
         document.getElementById('ReceivedDate').addEventListener('change', calculateExpiryDate);
+
+        // 頁面載入時計算一次
+        document.addEventListener('DOMContentLoaded', calculateExpiryDate);
     </script>
 }

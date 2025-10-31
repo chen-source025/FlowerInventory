@@ -1,0 +1,189 @@
+@model List<FlowerInventory.Services.EnhancedInventoryViewModel>
+
+@{
+    ViewData["Title"] = "庫存總覽";
+}
+
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="fas fa-boxes text-success"></i> 庫存總覽</h2>
+        <a href="@Url.Action("Dashboard")" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left"></i> 返回儀表板
+        </a>
+    </div>
+
+    <!-- 統計卡片 -->
+    <div class="row mb-4">
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-primary shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">總庫存價值</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">@ViewBag.TotalValue?.ToString("C0")</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-dollar-sign fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-success shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-success text-uppercase mb-1">總品項數</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">@ViewBag.TotalItems</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-leaf fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-warning shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">低庫存品項</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">@ViewBag.LowStockCount</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-exclamation-triangle fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-danger shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-danger text-uppercase mb-1">缺貨品項</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">@ViewBag.OutOfStockCount</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-times-circle fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card shadow">
+        <div class="card-header bg-success text-white">
+            <h6 class="m-0 font-weight-bold"><i class="fas fa-list"></i> 庫存清單</h6>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-bordered table-hover" id="inventoryTable">
+                    <thead class="table-light">
+                        <tr>
+                            <th>花名</th>
+                            <th>分類</th>
+                            <th>當前庫存</th>
+                            <th>安全庫存</th>
+                            <th>每週需求</th>
+                            <th>覆蓋天數</th>
+                            <th>狀態</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var item in Model)
+                        {
+                            <tr class="@(item.CurrentStock < item.SafetyStock ? "table-warning" : "")">
+                                <td>
+                                    <span class="badge @GetABCClassBadge(item.ABCClass)">@item.ABCClass</span>
+                                    @item.Name
+                                    @if (!string.IsNullOrEmpty(item.Variety))
+                                    {
+                                        <br /><small class="text-muted">@item.Variety</small>
+                                    }
+                                </td>
+                                <td>@item.Category</td>
+                                <td>
+                                    <span class="fw-bold @(item.CurrentStock < item.SafetyStock ? "text-danger" : "text-success")">
+                                        @item.CurrentStock
+                                    </span>
+                                </td>
+                                <td>@Math.Ceiling(item.SafetyStock)</td>
+                                <td>@item.WeeklyDemand.ToString("F1")</td>
+                                <td>@item.StockCoverageDays.ToString("F1") 天</td>
+                                <td>
+                                    @if (item.IsOutOfStock)
+                                    {
+                                        <span class="badge bg-danger">
+                                            <i class="fas fa-times-circle"></i> 缺貨
+                                        </span>
+                                    }
+                                    else if (item.IsLowStock)
+                                    {
+                                        <span class="badge bg-warning">
+                                            <i class="fas fa-exclamation-triangle"></i> 需補貨
+                                        </span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-success">
+                                            <i class="fas fa-check-circle"></i> 正常
+                                        </span>
+                                    }
+                                </td>
+                                <td>
+                                    <div class="btn-group btn-group-sm" role="group">
+                                        <a href="@Url.Action("ReceiveGoods", "Workflow", new { flowerId = item.FlowerId })" 
+                                           class="btn btn-outline-primary" title="進貨">
+                                            <i class="fas fa-plus"></i>
+                                        </a>
+                                        <a href="@Url.Action("ShipGoods", "Workflow", new { flowerId = item.FlowerId })" 
+                                           class="btn btn-outline-success" title="出貨">
+                                            <i class="fas fa-shipping-fast"></i>
+                                        </a>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        $(document).ready(function () {
+            $('#inventoryTable').DataTable({
+                language: {
+                    url: '//cdn.datatables.net/plug-ins/1.13.6/i18n/zh-HANT.json'
+                },
+                pageLength: 25,
+                order: [[2, 'asc']] // 預設按當前庫存排序
+            });
+        });
+    </script>
+}
+
+@functions 
+{
+    string GetABCClassBadge(string abcClass)
+    {
+        return abcClass switch
+        {
+            "A" => "bg-danger",
+            "B" => "bg-warning", 
+            "C" => "bg-success",
+            _ => "bg-secondary"
+        };
+    }
+}

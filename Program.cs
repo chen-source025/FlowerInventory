@@ -35,8 +35,8 @@ else
     app.UseDeveloperExceptionPage();
 }
 
-app.UseHttpsRedirection();
 app.UseStaticFiles();
+app.UseHttpsRedirection();
 app.UseRouting();
 app.UseAuthorization();
 app.UseMiddleware<GlobalExceptionHandlerMiddleware>();

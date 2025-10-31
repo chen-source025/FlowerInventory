@@ -458,7 +458,7 @@ namespace FlowerInventory.Controllers
             catch (Exception ex)
             {
                 this.LogAndSetError(_logger, ex, "載入補貨建議報告");
-                return View(new List<EnhancedInventoryViewModel>());
+                return View(new List<Services.EnhancedInventoryViewModel>());
             }
         }
 
@@ -496,7 +496,7 @@ namespace FlowerInventory.Controllers
             catch (Exception ex)
             {
                 this.LogAndSetError(_logger, ex, "載入庫存總覽");
-                return View(new List<EnhancedInventoryViewModel>());
+                return View(new List<Services.EnhancedInventoryViewModel>());
             }
         }
 
@@ -594,7 +594,7 @@ namespace FlowerInventory.Controllers
             }
         }
 
-        private async Task<WorkflowDashboardViewModel> GetDashboardDataAsync(List<EnhancedInventoryViewModel> inventoryStatus)
+        private async Task<WorkflowDashboardViewModel> GetDashboardDataAsync(List<Services.EnhancedInventoryViewModel> inventoryStatus)
         {
             var recentBatches = await _context.Batches
                 .Include(b => b.Flower)
