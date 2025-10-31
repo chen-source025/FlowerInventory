@@ -66,6 +66,10 @@ try
             
             try
             {
+                // 檢查資料庫中現有的花卉數量
+                var flowerCount = await context.Flowers.CountAsync();
+                Console.WriteLine($"📊 當前資料庫中有 {flowerCount} 筆花卉資料");
+
                 // 確保資料庫存在並執行遷移
                 await context.Database.EnsureCreatedAsync();
                 Console.WriteLine("✅ 資料庫確保建立完成");
@@ -87,7 +91,8 @@ try
                 try 
                 {
                     await context.SeedDataAsync();
-                    Console.WriteLine("✅ 種子資料植入完成");
+                    var newCount = await context.Flowers.CountAsync();
+                    Console.WriteLine($"🌱 種子資料植入完成，現在有 {newCount} 筆花卉資料");
                 }
                 catch (Exception seedEx)
                 {

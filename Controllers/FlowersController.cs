@@ -27,12 +27,17 @@ namespace FlowerInventory.Controllers
                     .OrderBy(f => f.Name)
                     .ToListAsync();
 
+                // 檢查資料庫連線狀態
+                var canConnect = await _context.Database.CanConnectAsync();
+                ViewBag.DatabaseStatus = canConnect ? $"已連線 (共{flowers.Count}筆資料)" : "連線失敗";
+
                 _logger.LogInformation("成功載入 {Count} 筆花卉清單", flowers.Count);
                 return View(flowers);
             }
             catch (Exception ex)
             {
-                this.LogAndSetError(_logger, ex, "載入花卉清單");
+                _logger.LogError(ex, "載入花卉清單時發生錯誤");
+                ViewBag.DatabaseStatus = $"錯誤: {ex.Message}";
                 return View(new List<Flower>());
             }
         }
@@ -82,9 +87,15 @@ namespace FlowerInventory.Controllers
         {
             try
             {
+                _logger.LogInformation("開始新增花卉，名稱: {Name}", flower.Name);
+
                 if (!ModelState.IsValid)
                 {
-                    _logger.LogWarning("新增花卉時模組驗證失敗");
+                    _logger.LogWarning("新增花卉時模型驗證失敗");
+                    foreach (var error in ModelState.Values.SelectMany(v => v.Errors))
+                    {
+                        _logger.LogWarning("驗證錯誤: {ErrorMessage}", error.ErrorMessage);
+                    }
                     return View(flower);
                 }
 
@@ -92,6 +103,7 @@ namespace FlowerInventory.Controllers
                 if (!IsValidFlowerForCreation(flower))
                 {
                     ModelState.AddModelError("", "花卉資料驗證失敗，請檢查必填欄位");
+                    _logger.LogWarning("業務邏輯驗證失敗");
                     return View(flower);
                 }
 
@@ -102,25 +114,35 @@ namespace FlowerInventory.Controllers
                 if (existingFlower)
                 {
                     ModelState.AddModelError("Name", "花卉名稱已存在，請使用其他名稱");
+                    _logger.LogWarning("花卉名稱已存在: {Name}", flower.Name);
                     return View(flower);
                 }
 
+                // 設定建立日期
                 flower.CreatedDate = DateTime.UtcNow;
-                _context.Add(flower);
-                await _context.SaveChangesAsync();
 
+                _logger.LogInformation("準備新增花卉到資料庫: {Name}", flower.Name);
+
+                _context.Add(flower);
+                var result = await _context.SaveChangesAsync();
+
+                _logger.LogInformation("資料庫儲存完成，影響行數: {RowsAffected}, 花卉ID: {FlowerId}", result, flower.Id);
                 _logger.LogInformation("成功新增花卉, ID: {FlowerId}, 名稱: {FlowerName}", flower.Id, flower.Name);
-                return this.RedirectWithSuccess(nameof(Index), $"花卉 {flower.Name} 新增成功！");
+
+                // 使用 TempData 傳遞成功訊息
+                TempData["SuccessMessage"] = $"✅ 花卉 {flower.Name} 新增成功！";
+                return RedirectToAction(nameof(Index));
             }
             catch (DbUpdateException ex)
             {
-                this.LogAndSetError(_logger, ex, "新增花卉");
+                _logger.LogError(ex, "資料庫更新異常 - 新增花卉失敗");
                 ModelState.AddModelError("", "儲存失敗，請檢查輸入資料");
                 return View(flower);
             }
             catch (Exception ex)
             {
-                this.LogAndSetError(_logger, ex, "新增花卉");
+                _logger.LogError(ex, "新增花卉時發生異常");
+                ModelState.AddModelError("", $"新增失敗: {ex.Message}");
                 return View(flower);
             }
         }
