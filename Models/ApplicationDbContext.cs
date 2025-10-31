@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using System.Reflection;
 
 namespace FlowerInventory.Models
 {
@@ -16,19 +17,101 @@ namespace FlowerInventory.Models
         {
             base.OnModelCreating(modelBuilder);
 
-            // 統一時間 類型映射
-            foreach (var entityType in modelBuilder.Model.GetEntityTypes())
+            modelBuilder.HasPostgresExtension("uuid-ossp");
+
+            modelBuilder.Entity<Flower>(entity =>
             {
-                foreach (var property in entityType.GetProperties())
-                {
-                    if (property.ClrType == typeof(DateTime) || property.ClrType == typeof(DateTime?))
-                    {
-                        property.SetColumnType("timestamp with time zone");
-                    }
-                }
-            }
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.Id).ValueGeneratedOnAdd();
+
+                // 設定 decimal 類型的精度
+                entity.Property(e => e.Price)
+                    .HasColumnType("decimal(10,2)")
+                    .HasDefaultValue(0);
+
+                entity.Property(e => e.SeasonalFactor)
+                    .HasColumnType("decimal(4,2)")
+                    .HasDefaultValue(1.0m);
+
+                entity.Property(e => e.InspectionPassRate)
+                    .HasColumnType("decimal(3,2)")
+                    .HasDefaultValue(0.8m);
+
+                // 設定非空約束
+                entity.Property(e => e.Name).IsRequired().HasMaxLength(100);
+                entity.Property(e => e.Category).IsRequired().HasMaxLength(50);
+                entity.Property(e => e.ABCClass).IsRequired().HasMaxLength(1);
+                entity.Property(e => e.ShelfLifeDays).IsRequired().HasDefaultValue(30);
+                entity.Property(e => e.LeadTimeDays).HasDefaultValue(7);
+                entity.Property(e => e.SupplierDeliveriesPerWeek).HasDefaultValue(1);
+                entity.Property(e => e.ReplenishCycleWeeks).HasDefaultValue(1);
+                entity.Property(e => e.CreatedDate).HasDefaultValueSql("NOW()");
+            });
+
+            // Batch 模型配置
+            modelBuilder.Entity<Batch>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.Id).ValueGeneratedOnAdd();
+
+                entity.Property(e => e.BatchNo).HasMaxLength(50);
+                entity.Property(e => e.InspectionNote).HasMaxLength(500);
+                entity.Property(e => e.Status).HasDefaultValue(BatchStatus.Active);
+                entity.Property(e => e.CreatedDate).HasDefaultValueSql("NOW()");
+                entity.Property(e => e.ReceivedDate).HasDefaultValueSql("NOW()");
+
+                // 外鍵關係
+                entity.HasOne(b => b.Flower)
+                    .WithMany(f => f.Batches)
+                    .HasForeignKey(b => b.FlowerId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            // Transaction 模型配置
+            modelBuilder.Entity<Transaction>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.Id).ValueGeneratedOnAdd();
+
+                entity.Property(e => e.Note).HasMaxLength(400);
+                entity.Property(e => e.TransactionType).HasDefaultValue(TransactionType.In);
+                entity.Property(e => e.TransactionDate).HasDefaultValueSql("NOW()");
+
+                // 外鍵關係
+                entity.HasOne(t => t.Flower)
+                    .WithMany(f => f.Transactions)
+                    .HasForeignKey(t => t.FlowerId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(t => t.Batch)
+                    .WithMany()
+                    .HasForeignKey(t => t.BatchId)
+                    .OnDelete(DeleteBehavior.SetNull);
+            });
+
+            // 索引配置
+            modelBuilder.Entity<Flower>()
+                .HasIndex(f => f.Name)
+                .IsUnique();
 
             modelBuilder.Entity<Flower>()
+                .HasIndex(f => f.Category);
+
+            modelBuilder.Entity<Flower>()
+                .HasIndex(f => f.ABCClass);
+
+            modelBuilder.Entity<Batch>()
+                .HasIndex(b => b.BatchNo)
+                .IsUnique();
+
+            modelBuilder.Entity<Batch>()
+                .HasIndex(b => b.ReceivedDate);
+
+            modelBuilder.Entity<Batch>()
+                .HasIndex(b => b.ExpiryDate);
+
+            modelBuilder.Entity<Batch>()
+                .HasIndex(b => b.Status); modelBuilder.Entity<Flower>()
                 .HasIndex(f => f.Name)
                 .IsUnique();
 

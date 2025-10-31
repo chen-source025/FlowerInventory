@@ -10,12 +10,17 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
 {
     var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
-    Console.WriteLine($"🔍 連線字串: {connectionString?.Substring(0, Math.Min(50, connectionString.Length))}...");
-    options.UseNpgsql(connectionString);
+    Console.WriteLine($"🔍 連線字串: {connectionString?.Substring(0, Math.Min(50, connectionString?.Length ?? 0))}...");
+    options.UseNpgsql(connectionString, 
+        npgsqlOptions => npgsqlOptions.EnableRetryOnFailure(3, TimeSpan.FromSeconds(5), null));
 });
 
 builder.Services.AddScoped<IEnhancedInventoryService, EnhancedInventoryService>();
 builder.Services.AddControllersWithViews();
+builder.Logging.ClearProviders();
+builder.Logging.AddConsole();
+builder.Logging.AddDebug();
+builder.Services.AddTransient<GlobalExceptionHandlerMiddleware>();
 
 var app = builder.Build();
 
@@ -25,11 +30,16 @@ if (!app.Environment.IsDevelopment())
     app.UseExceptionHandler("/Home/Error");
     app.UseHsts();
 }
+else
+{
+    app.UseDeveloperExceptionPage();
+}
 
 app.UseHttpsRedirection();
 app.UseStaticFiles();
 app.UseRouting();
 app.UseAuthorization();
+app.UseMiddleware<GlobalExceptionHandlerMiddleware>();
 
 app.MapControllerRoute(
     name: "default",
@@ -45,8 +55,8 @@ try
 
         Console.WriteLine("🔍 嘗試連接 PostgreSQL...");
 
-        // 等待資料庫準備好
-        await Task.Delay(2000);     // 給 Render 資料庫一些啟動時間
+        // 給資料庫一些啟動時間
+        await Task.Delay(5000);
         
         var canConnect = await context.Database.CanConnectAsync();
         
@@ -54,33 +64,46 @@ try
         {
             Console.WriteLine("✅ PostgreSQL 連線成功！");
             
-            // 檢查遷移
-            var pendingMigrations = await context.Database.GetPendingMigrationsAsync();
-            if (pendingMigrations.Any())
+            try
             {
-                Console.WriteLine($"🔄 執行遷移: {string.Join(", ", pendingMigrations)}");
-                await context.Database.MigrateAsync();
-                Console.WriteLine("✅ 資料庫遷移完成");
+                // 確保資料庫存在並執行遷移
+                await context.Database.EnsureCreatedAsync();
+                Console.WriteLine("✅ 資料庫確保建立完成");
+
+                // 檢查是否有待處理的遷移
+                var pendingMigrations = await context.Database.GetPendingMigrationsAsync();
+                if (pendingMigrations.Any())
+                {
+                    Console.WriteLine($"🔄 執行遷移: {string.Join(", ", pendingMigrations)}");
+                    await context.Database.MigrateAsync();
+                    Console.WriteLine("✅ 資料庫遷移完成");
+                }
+                else
+                {
+                    Console.WriteLine("✅ 無待處理遷移");
+                }
+
+                // 嘗試植入種子資料
+                try 
+                {
+                    await context.SeedDataAsync();
+                    Console.WriteLine("✅ 種子資料植入完成");
+                }
+                catch (Exception seedEx)
+                {
+                    Console.WriteLine($"⚠️ 種子資料植入警告: {seedEx.Message}");
+                    // 繼續執行，種子資料不是關鍵
+                }
             }
-            else
+            catch (Exception dbEx)
             {
-                Console.WriteLine("✅ 無待處理遷移");
-            }
-            
-            // 嘗試植入種子資料
-            try 
-            {
-                await context.SeedDataAsync();
-                Console.WriteLine("✅ 種子資料植入完成");
-            }
-            catch (Exception seedEx)
-            {
-                Console.WriteLine($"⚠️ 種子資料植入警告: {seedEx.Message}");
+                Console.WriteLine($"❌ 資料庫操作失敗: {dbEx.Message}");
+                // 繼續啟動應用程式，可能是表格已經存在
             }
         }
         else
         {
-            Console.WriteLine("❌ 無法連接到資料庫");
+            Console.WriteLine("❌ 無法連接到資料庫，但應用程式繼續啟動");
         }
     }
 }
