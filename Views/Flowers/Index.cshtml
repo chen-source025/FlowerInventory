@@ -1,0 +1,112 @@
+@model IEnumerable<FlowerInventory.Models.Flower>
+
+@{
+    ViewData["Title"] = "花卉管理";
+}
+
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="fas fa-leaf text-success"></i> 花卉管理</h2>
+        <a href="@Url.Action("Create")" class="btn btn-success">
+            <i class="fas fa-plus"></i> 新增花卉
+        </a>
+    </div>
+
+    <div class="card shadow">
+        <div class="card-header bg-success text-white">
+            <h6 class="m-0 font-weight-bold"><i class="fas fa-list"></i> 花卉清單</h6>
+        </div>
+        <div class="card-body">
+            @if (Model.Any())
+            {
+                <div class="table-responsive">
+                    <table class="table table-bordered table-hover" id="flowersTable">
+                        <thead class="table-light">
+                            <tr>
+                                <th>花名</th>
+                                <th>品種</th>
+                                <th>分類</th>
+                                <th>ABC分類</th>
+                                <th>保存天數</th>
+                                <th>單價</th>
+                                <th>建立日期</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var item in Model)
+                            {
+                                <tr>
+                                    <td>
+                                        <strong>@item.Name</strong>
+                                    </td>
+                                    <td>@item.Variety</td>
+                                    <td>
+                                        <span class="badge bg-info">@item.Category</span>
+                                    </td>
+                                    <td>
+                                        <span class="badge @GetABCClassBadge(item.ABCClass)">@item.ABCClass</span>
+                                    </td>
+                                    <td>@item.ShelfLifeDays 天</td>
+                                    <td>@item.Price?.ToString("C0")</td>
+                                    <td>@item.CreatedDate.ToString("yyyy/MM/dd")</td>
+                                    <td>
+                                        <div class="btn-group btn-group-sm" role="group">
+                                            <a href="@Url.Action("Details", new { id = item.Id })" class="btn btn-outline-info" title="詳情">
+                                                <i class="fas fa-eye"></i>
+                                            </a>
+                                            <a href="@Url.Action("Edit", new { id = item.Id })" class="btn btn-outline-primary" title="編輯">
+                                                <i class="fas fa-edit"></i>
+                                            </a>
+                                            <a href="@Url.Action("Delete", new { id = item.Id })" class="btn btn-outline-danger" title="刪除">
+                                                <i class="fas fa-trash"></i>
+                                            </a>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+            else
+            {
+                <div class="text-center py-4">
+                    <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
+                    <h5>暫無花卉資料</h5>
+                    <p class="text-muted">請新增第一筆花卉資料</p>
+                    <a href="@Url.Action("Create")" class="btn btn-success">
+                        <i class="fas fa-plus"></i> 新增花卉
+                    </a>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        $(document).ready(function () {
+            $('#flowersTable').DataTable({
+                language: {
+                    url: '//cdn.datatables.net/plug-ins/1.13.6/i18n/zh-HANT.json'
+                },
+                pageLength: 25,
+                order: [[0, 'asc']] // 按花名排序
+            });
+        });
+    </script>
+}
+
+@functions {
+    string GetABCClassBadge(string abcClass)
+    {
+        return abcClass switch
+        {
+            "A" => "bg-danger",
+            "B" => "bg-warning", 
+            "C" => "bg-success",
+            _ => "bg-secondary"
+        };
+    }
+}

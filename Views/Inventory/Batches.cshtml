@@ -1,0 +1,209 @@
+@model IEnumerable<FlowerInventory.Models.Batch>
+
+@{
+    ViewData["Title"] = "批次管理";
+}
+
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="fas fa-clipboard-list text-success"></i> 批次管理</h2>
+        <a href="@Url.Action("Dashboard", "Workflow")" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left"></i> 返回儀表板
+        </a>
+    </div>
+
+    <!-- 統計卡片 -->
+    <div class="row mb-4">
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-primary shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">總批次數</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">@ViewBag.TotalBatches</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-list fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-warning shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">即將到期</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">@ViewBag.ExpiringBatches</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-exclamation-triangle fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-danger shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-danger text-uppercase mb-1">已過期</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">@ViewBag.ExpiredBatches</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-times-circle fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-success shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-success text-uppercase mb-1">平均合格率</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">@ViewBag.AvgPassRate?.ToString("P2")</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-check-circle fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card shadow">
+        <div class="card-header bg-success text-white">
+            <h6 class="m-0 font-weight-bold"><i class="fas fa-list-ul"></i> 批次清單</h6>
+        </div>
+        <div class="card-body">
+            @if (Model.Any())
+            {
+                <div class="table-responsive">
+                    <table class="table table-bordered table-hover" id="batchesTable">
+                        <thead class="table-light">
+                            <tr>
+                                <th>批號</th>
+                                <th>花卉</th>
+                                <th>進貨數量</th>
+                                <th>合格數量</th>
+                                <th>合格率</th>
+                                <th>收貨日期</th>
+                                <th>到期日</th>
+                                <th>狀態</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var item in Model)
+                            {
+                                <tr class="@(item.IsExpiringSoon ? "table-warning" : "") @(item.IsExpired ? "table-danger" : "")">
+                                    <td>@item.BatchNo</td>
+                                    <td>@item.Flower.Name</td>
+                                    <td>@item.QuantityReceived</td>
+                                    <td>@item.QuantityPassed</td>
+                                    <td>
+                                        <span class="badge @GetPassRateBadge(item.PassRate)">
+                                            @item.PassRate.ToString("P2")
+                                        </span>
+                                    </td>
+                                    <td>@item.ReceivedDate.ToString("yyyy/MM/dd")</td>
+                                    <td>@item.ExpiryDate?.ToString("yyyy/MM/dd")</td>
+                                    <td>
+                                        <span class="badge @GetStatusBadge(item.Status)">
+                                            @GetStatusText(item.Status)
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <div class="btn-group btn-group-sm" role="group">
+                                            @if (item.Status == BatchStatus.Received)
+                                            {
+                                                <a href="@Url.Action("Inspection", "Workflow", new { batchId = item.Id })" 
+                                                   class="btn btn-outline-warning" title="品檢">
+                                                    <i class="fas fa-clipboard-check"></i>
+                                                </a>
+                                            }
+                                            <a href="#" class="btn btn-outline-info" title="詳情">
+                                                <i class="fas fa-eye"></i>
+                                            </a>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+            else
+            {
+                <div class="text-center py-4">
+                    <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
+                    <h5>暫無批次資料</h5>
+                    <p class="text-muted">請先進行進貨作業</p>
+                    <a href="@Url.Action("ReceiveGoods", "Workflow")" class="btn btn-success">
+                        <i class="fas fa-truck-loading"></i> 新增進貨
+                    </a>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        $(document).ready(function () {
+            $('#batchesTable').DataTable({
+                language: {
+                    url: '//cdn.datatables.net/plug-ins/1.13.6/i18n/zh-HANT.json'
+                },
+                pageLength: 25,
+                order: [[5, 'desc']] // 按收貨日期降序
+            });
+        });
+    </script>
+}
+
+@functions {
+    string GetPassRateBadge(decimal passRate)
+    {
+        return passRate switch
+        {
+            >= 0.9m => "bg-success",
+            >= 0.7m => "bg-warning",
+            _ => "bg-danger"
+        };
+    }
+
+    string GetStatusBadge(BatchStatus status)
+    {
+        return status switch
+        {
+            BatchStatus.Received => "bg-secondary",
+            BatchStatus.Inspected => "bg-info",
+            BatchStatus.Active => "bg-success",
+            BatchStatus.Expired => "bg-danger",
+            BatchStatus.Discarded => "bg-dark",
+            _ => "bg-secondary"
+        };
+    }
+
+    string GetStatusText(BatchStatus status)
+    {
+        return status switch
+        {
+            BatchStatus.Received => "已收貨",
+            BatchStatus.Inspected => "已品檢",
+            BatchStatus.Active => "有效",
+            BatchStatus.Expired => "已過期",
+            BatchStatus.Discarded => "已報廢",
+            _ => status.ToString()
+        };
+    }
+}

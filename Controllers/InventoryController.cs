@@ -33,11 +33,13 @@ namespace FlowerInventory.Controllers
                     .OrderByDescending(b => b.ReceivedDate)
                     .ToListAsync(cancellationToken);
 
-                var batchStatistics = CalculateBatchStatistics(batches);
+                // 計算統計數據
+                ViewBag.TotalBatches = batches.Count;
+                ViewBag.ExpiringBatches = batches.Count(b => b.IsExpiringSoon);
+                ViewBag.ExpiredBatches = batches.Count(b => b.IsExpired);
+                ViewBag.AvgPassRate = batches.Any() ? batches.Average(b => b.PassRate) : 0;
 
-                SetBatchViewBag(batchStatistics);
                 _logger.LogInformation("成功載入批次管理頁面，共 {BatchCount} 筆批次", batches.Count);
-
                 return View(batches);
             }
             catch (Exception ex)
