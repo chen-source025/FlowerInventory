@@ -24,10 +24,10 @@ namespace FlowerInventory.Models
                 entity.HasKey(e => e.Id);
                 entity.Property(e => e.Id).ValueGeneratedOnAdd();
 
-                // 設定 decimal 類型的精度
+                // 為 decimal? 類型使用正確的預設值類型
                 entity.Property(e => e.Price)
                     .HasColumnType("decimal(10,2)")
-                    .HasDefaultValue(0);
+                    .HasDefaultValue(0m);
 
                 entity.Property(e => e.SeasonalFactor)
                     .HasColumnType("decimal(4,2)")

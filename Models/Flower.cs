@@ -31,7 +31,7 @@ namespace FlowerInventory.Models
         [Display(Name = "單價")]
         [Range(0.01, 10000, ErrorMessage = "單價必須在 0.01-10000 之間")]
         [Column(TypeName = "decimal(10,2)")]
-        public decimal? Price { get; set; } = 0m;
+        public decimal? Price { get; set; } = 0;
 
         [Display(Name = "季節係數")]
         [Range(0.1, 3.0, ErrorMessage = "季節係數必須在 0.1-3.0 之間")]
