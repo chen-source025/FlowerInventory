@@ -304,6 +304,46 @@ namespace FlowerInventory.Controllers
             }
         }
 
+        // API: 批次詳情
+        [HttpGet]
+        public async Task<IActionResult> GetBatchDetails(int id)
+        {
+            try
+            {
+                var batch = await _context.Batches
+                    .Include(b => b.Flower)
+                    .FirstOrDefaultAsync(b => b.Id == id);
+
+                if (batch == null)
+                {
+                    return this.ApiSuccess(new { exists = false, message = "批次不存在" });
+                }
+
+                var batchInfo = new
+                {
+                    exists = true,
+                    batchId = batch.Id,
+                    batchNo = batch.BatchNo,
+                    flowerName = batch.Flower.Name,
+                    quantityReceived = batch.QuantityReceived,
+                    quantityPassed = batch.QuantityPassed,
+                    receivedDate = batch.ReceivedDate.ToString("yyyy/MM/dd"),
+                    expiryDate = batch.ExpiryDate?.ToString("yyyy/MM/dd"),
+                    inspectionNote = batch.InspectionNote,
+                    status = batch.Status.ToString(),
+                    passRate = batch.PassRate.ToString("P2"),
+                    daysUntilExpiry = batch.DaysUntilExpiry,
+                    isExpiringSoon = batch.IsExpiringSoon
+                };
+
+                return this.ApiSuccess(batchInfo);
+            }
+            catch (Exception ex)
+            {
+                return this.ApiError(_logger, ex, "取得批次詳情");
+            }
+        }
+
         // 輔助方法
         private BatchStatistics CalculateBatchStatistics(List<Batch> batches)
         {

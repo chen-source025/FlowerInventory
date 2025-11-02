@@ -69,4 +69,12 @@
 
 @section Scripts {
     @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+
+    <script>
+        // 頁面載入時，如果表單驗證失敗，保持選擇的值
+        document.addEventListener('DOMContentLoaded', function() {
+            // 使用 asp-for，讓選擇器自動保持表單值
+            console.log('出貨作業表單已載入');
+        });
+    </script>
 }

@@ -282,7 +282,7 @@ namespace FlowerInventory.Controllers
                 if (!ModelState.IsValid)
                 {
                     _logger.LogWarning("出貨作業模型驗證失敗");
-                    await ReloadAvailableFlowers(model);    // 載入可用花卉
+                    await ReloadAvailableFlowersForModel(model);    // 載入可用花卉
                     return View(model);
                 }
 
@@ -294,7 +294,7 @@ namespace FlowerInventory.Controllers
                 if (flower == null)
                 {
                     ModelState.AddModelError("", "花卉不存在");
-                    await ReloadAvailableFlowers(model);
+                    await ReloadAvailableFlowersForModel(model);
                     return View(model);
                 }
 
@@ -304,14 +304,14 @@ namespace FlowerInventory.Controllers
                 {
                     ModelState.AddModelError("Quantity",
                         $"庫存不足。當前庫存: {currentStock}，出貨數量: {model.Quantity}");
-                    await ReloadFlowersViewBag();
+                    await ReloadAvailableFlowersForModel(model);
                     return View(model);
                 }
 
                 if (model.Quantity <= 0)
                 {
                     ModelState.AddModelError("Quantity", "出貨數量必須大於0");
-                    await ReloadFlowersViewBag();
+                    await ReloadAvailableFlowersForModel(model);
                     return View(model);
                 }
 
@@ -349,14 +349,14 @@ namespace FlowerInventory.Controllers
             {
                 this.LogAndSetError(_logger, ex, "出貨作業");
                 this.SetErrorMessage("出貨作業失敗，請檢查輸入資料");
-                await ReloadFlowersViewBag();
+                await ReloadAvailableFlowersForModel(model);
                 return View(model);
             }
             catch (Exception ex)
             {
                 this.LogAndSetError(_logger, ex, "出貨作業");
                 this.SetErrorMessage($"出貨作業失敗: {ex.Message}");
-                await ReloadFlowersViewBag();
+                await ReloadAvailableFlowersForModel(model);
                 return View(model);
             }
         }
@@ -623,11 +623,34 @@ namespace FlowerInventory.Controllers
             };
         }
 
-        private async Task ReloadFlowersViewBag()
+        // 為模型重新載入可用花卉
+        private async Task ReloadAvailableFlowersForModel(ShipmentViewModel model)
         {
-            ViewBag.Flowers = await _context.Flowers
+            var allFlowers = await _context.Flowers
+                .Include(f => f.Batches)
                 .OrderBy(f => f.Name)
                 .ToListAsync();
+
+            var flowersWithStock = new List<Flower>();
+            foreach (var flower in allFlowers)
+            {
+                var stock = await _inventoryService.CalculateCurrentStockAsync(flower.Id);
+                if (stock > 0)
+                {
+                    flowersWithStock.Add(flower);
+                }
+            }
+
+            model.AvailableFlowers = flowersWithStock;
+        }
+
+        private async Task ReloadFlowersViewBag()
+        {
+            var flowers = await _context.Flowers
+                .OrderBy(f => f.Name)
+                .ToListAsync();
+
+            ViewBag.Flowers = new SelectList(flowers, "Id", "Name");
         }
 
         private string GenerateBatchNumber(Flower flower)

@@ -130,9 +130,11 @@
                                                     <i class="fas fa-clipboard-check"></i>
                                                 </a>
                                             }
-                                            <a href="#" class="btn btn-outline-info" title="詳情">
+                                            <!-- 修正：改為按鈕並添加必要的類名和數據屬性 -->
+                                            <button type="button" class="btn btn-outline-info batch-detail-btn" 
+                                                    data-batch-id="@item.Id" title="查看詳情">
                                                 <i class="fas fa-eye"></i>
-                                            </a>
+                                            </button>
                                         </div>
                                     </td>
                                 </tr>
@@ -156,9 +158,38 @@
     </div>
 </div>
 
+<!-- 批次詳情模態對話框 -->
+<div class="modal fade" id="batchDetailModal" tabindex="-1" aria-labelledby="batchDetailModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title" id="batchDetailModalLabel">
+                    <i class="fas fa-info-circle"></i> 批次詳情
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="batchDetailContent">
+                <!-- 內容將透過 JavaScript 動態載入 -->
+                <div class="text-center">
+                    <div class="spinner-border text-success" role="status">
+                        <span class="visually-hidden">載入中...</span>
+                    </div>
+                    <p class="mt-2">載入批次詳情中...</p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times"></i> 關閉
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 @section Scripts {
     <script>
         $(document).ready(function () {
+            // 初始化 DataTable
             $('#batchesTable').DataTable({
                 language: {
                     url: '//cdn.datatables.net/plug-ins/1.13.6/i18n/zh-HANT.json'
@@ -166,6 +197,169 @@
                 pageLength: 25,
                 order: [[5, 'desc']] // 按收貨日期降序
             });
+
+            // 批次詳情按鈕點擊事件
+            $('.batch-detail-btn').click(function () {
+                const batchId = $(this).data('batch-id');
+                loadBatchDetails(batchId);
+            });
+
+            function loadBatchDetails(batchId) {
+                // 顯示載入狀態
+                $('#batchDetailContent').html(`
+                    <div class="text-center">
+                        <div class="spinner-border text-success" role="status">
+                            <span class="visually-hidden">載入中...</span>
+                        </div>
+                        <p class="mt-2">載入批次詳情中...</p>
+                    </div>
+                `);
+
+                // 顯示模態框
+                const modal = new bootstrap.Modal(document.getElementById('batchDetailModal'));
+                modal.show();
+
+                // 取得批次詳情
+                $.get('/Inventory/GetBatchDetails?id=' + batchId, function (data) {
+                    if (data.success && data.data.exists) {
+                        const batch = data.data;
+                        const content = `
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <dl>
+                                        <dt>批號：</dt>
+                                        <dd><strong class="text-success">${batch.batchNo}</strong></dd>
+                                        
+                                        <dt>花卉名稱：</dt>
+                                        <dd>${batch.flowerName}</dd>
+                                        
+                                        <dt>收貨數量：</dt>
+                                        <dd>${batch.quantityReceived} 株</dd>
+                                        
+                                        <dt>合格數量：</dt>
+                                        <dd>${batch.quantityPassed} 株</dd>
+                                        
+                                        <dt>不合格數量：</dt>
+                                        <dd>${batch.quantityReceived - batch.quantityPassed} 株</dd>
+                                    </dl>
+                                </div>
+                                <div class="col-md-6">
+                                    <dl>
+                                        <dt>收貨日期：</dt>
+                                        <dd>${batch.receivedDate}</dd>
+                                        
+                                        <dt>到期日：</dt>
+                                        <dd class="${batch.isExpiringSoon ? 'text-warning fw-bold' : ''}">
+                                            ${batch.expiryDate || '未設定'}
+                                            ${batch.isExpiringSoon ? ' ⚠️ 即將到期' : ''}
+                                        </dd>
+                                        
+                                        <dt>合格率：</dt>
+                                        <dd>
+                                            <div class="progress" style="height: 25px;">
+                                                <div class="progress-bar ${getProgressBarClass(batch.passRate)}" 
+                                                     style="width: ${parseFloat(batch.passRate) * 100}%;">
+                                                    ${batch.passRate}
+                                                </div>
+                                            </div>
+                                        </dd>
+                                        
+                                        <dt>狀態：</dt>
+                                        <dd><span class="badge ${getStatusBadgeClass(batch.status)}">${getStatusDisplayText(batch.status)}</span></dd>
+                                        
+                                        <dt>距離到期天數：</dt>
+                                        <dd class="${batch.daysUntilExpiry < 0 ? 'text-danger fw-bold' : batch.daysUntilExpiry <= 3 ? 'text-warning fw-bold' : ''}">
+                                            ${batch.daysUntilExpiry < 0 ? '已過期' : `${batch.daysUntilExpiry} 天`}
+                                        </dd>
+                                    </dl>
+                                </div>
+                            </div>
+                            ${batch.inspectionNote ? `
+                            <div class="row mt-3">
+                                <div class="col-12">
+                                    <dt>品檢備註：</dt>
+                                    <dd class="border rounded p-2 bg-light">${batch.inspectionNote}</dd>
+                                </div>
+                            </div>
+                            ` : ''}
+                            <div class="row mt-3">
+                                <div class="col-12">
+                                    <div class="alert ${getExpiryAlertClass(batch.daysUntilExpiry, batch.isExpiringSoon)}">
+                                        <i class="fas ${getExpiryIconClass(batch.daysUntilExpiry, batch.isExpiringSoon)}"></i>
+                                        ${getExpiryMessage(batch.daysUntilExpiry, batch.isExpiringSoon)}
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                        $('#batchDetailContent').html(content);
+                    } else {
+                        $('#batchDetailContent').html(`
+                            <div class="alert alert-danger">
+                                <i class="fas fa-exclamation-triangle"></i>
+                                ${data.message || '載入批次詳情失敗'}
+                            </div>
+                        `);
+                    }
+                }).fail(function () {
+                    $('#batchDetailContent').html(`
+                        <div class="alert alert-danger">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            無法載入批次詳情，請稍後再試
+                        </div>
+                    `);
+                });
+            }
+
+            function getProgressBarClass(passRate) {
+                const rate = parseFloat(passRate);
+                if (rate >= 0.9) return 'bg-success';
+                if (rate >= 0.7) return 'bg-warning';
+                return 'bg-danger';
+            }
+
+            function getStatusBadgeClass(status) {
+                switch (status) {
+                    case 'Active': return 'bg-success';
+                    case 'Received': return 'bg-primary';
+                    case 'Inspected': return 'bg-info';
+                    case 'Expired': return 'bg-danger';
+                    case 'Discarded': return 'bg-secondary';
+                    default: return 'bg-secondary';
+                }
+            }
+
+            function getStatusDisplayText(status) {
+                switch (status) {
+                    case 'Active': return '有效';
+                    case 'Received': return '已收貨';
+                    case 'Inspected': return '已品檢';
+                    case 'Expired': return '已過期';
+                    case 'Discarded': return '已報廢';
+                    default: return status;
+                }
+            }
+
+            function getExpiryAlertClass(daysUntilExpiry, isExpiringSoon) {
+                if (daysUntilExpiry < 0) return 'alert-danger';
+                if (isExpiringSoon) return 'alert-warning';
+                return 'alert-info';
+            }
+
+            function getExpiryIconClass(daysUntilExpiry, isExpiringSoon) {
+                if (daysUntilExpiry < 0) return 'fa-exclamation-triangle';
+                if (isExpiringSoon) return 'fa-exclamation-circle';
+                return 'fa-info-circle';
+            }
+
+            function getExpiryMessage(daysUntilExpiry, isExpiringSoon) {
+                if (daysUntilExpiry < 0) {
+                    return '此批次已過期！請立即處理。';
+                } else if (isExpiringSoon) {
+                    return `此批次將在 ${daysUntilExpiry} 天後到期，請優先安排銷售！`;
+                } else {
+                    return `此批次還有 ${daysUntilExpiry} 天到期，庫存狀態正常。`;
+                }
+            }
         });
     </script>
 }
