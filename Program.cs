@@ -56,59 +56,62 @@ try
         Console.WriteLine("🔍 嘗試連接 PostgreSQL...");
 
         // 給資料庫一些啟動時間
-        await Task.Delay(5000);
-        
-        var canConnect = await context.Database.CanConnectAsync();
-        
-        if (canConnect)
+        await Task.Delay(3000);
+
+        var maxRetries = 3;
+        for (int i = 0; i < maxRetries; i++)
         {
-            Console.WriteLine("✅ PostgreSQL 連線成功！");
-            
             try
             {
-                // 檢查資料庫中現有的花卉數量
-                var flowerCount = await context.Flowers.CountAsync();
-                Console.WriteLine($"📊 當前資料庫中有 {flowerCount} 筆花卉資料");
+                var canConnect = await context.Database.CanConnectAsync();
 
-                // 確保資料庫存在並執行遷移
-                await context.Database.EnsureCreatedAsync();
-                Console.WriteLine("✅ 資料庫確保建立完成");
-
-                // 檢查是否有待處理的遷移
-                var pendingMigrations = await context.Database.GetPendingMigrationsAsync();
-                if (pendingMigrations.Any())
+                if (canConnect)
                 {
-                    Console.WriteLine($"🔄 執行遷移: {string.Join(", ", pendingMigrations)}");
-                    await context.Database.MigrateAsync();
-                    Console.WriteLine("✅ 資料庫遷移完成");
+                    Console.WriteLine("✅ PostgreSQL 連線成功！");
+
+                    // 檢查資料庫中現有的花卉數量
+                    var flowerCount = await context.Flowers.CountAsync();
+                    Console.WriteLine($"📊 當前資料庫中有 {flowerCount} 筆花卉資料");
+
+                    // 確保資料庫存在
+                    await context.Database.EnsureCreatedAsync();
+                    Console.WriteLine("✅ 資料庫確保建立完成");
+
+                    // 嘗試植入種子資料（只有當沒有資料時）
+                    if (flowerCount == 0)
+                    {
+                        try
+                        {
+                            await context.SeedDataAsync();
+                            var newCount = await context.Flowers.CountAsync();
+                            Console.WriteLine($"🌱 種子資料植入完成，現在有 {newCount} 筆花卉資料");
+                        }
+                        catch (Exception seedEx)
+                        {
+                            Console.WriteLine($"⚠️ 種子資料植入警告: {seedEx.Message}");
+                        }
+                    }
+                    else
+                    {
+                        Console.WriteLine("✅ 資料庫已有資料，跳過種子資料植入");
+                    }
+
+                    break; // 成功連接，跳出重試循環
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"❌ 連接嘗試 {i + 1}/{maxRetries} 失敗: {ex.Message}");
+                if (i < maxRetries - 1)
+                {
+                    Console.WriteLine("🔄 等待 5 秒後重試...");
+                    await Task.Delay(5000);
                 }
                 else
                 {
-                    Console.WriteLine("✅ 無待處理遷移");
-                }
-
-                // 嘗試植入種子資料
-                try 
-                {
-                    await context.SeedDataAsync();
-                    var newCount = await context.Flowers.CountAsync();
-                    Console.WriteLine($"🌱 種子資料植入完成，現在有 {newCount} 筆花卉資料");
-                }
-                catch (Exception seedEx)
-                {
-                    Console.WriteLine($"⚠️ 種子資料植入警告: {seedEx.Message}");
-                    // 繼續執行，種子資料不是關鍵
+                    Console.WriteLine("❌ 所有連接嘗試都失敗，但應用程式繼續啟動");
                 }
             }
-            catch (Exception dbEx)
-            {
-                Console.WriteLine($"❌ 資料庫操作失敗: {dbEx.Message}");
-                // 繼續啟動應用程式，可能是表格已經存在
-            }
-        }
-        else
-        {
-            Console.WriteLine("❌ 無法連接到資料庫，但應用程式繼續啟動");
         }
     }
 }

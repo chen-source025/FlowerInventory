@@ -15,11 +15,27 @@ namespace FlowerInventory.ViewModels
         public List<Transaction> RecentTransactions { get; set; } = new();
         public decimal TotalInventoryValue { get; set; }
 
-        // 計算屬性，與 Services 層保持一致
+        // 計算屬性
         public int NormalItems => TotalItems - NeedReplenishmentCount;
         public decimal ServiceLevel => TotalItems > 0 ?
             (decimal)(TotalItems - UrgentReplenishmentCount) / TotalItems : 0;
         public string ServiceLevelDisplay => ServiceLevel.ToString("P1");
+
+        // 計算屬性 (基於庫存狀態)
+        public int LowStockItems => InventoryStatus.Count(i => i.IsLowStock && !i.IsOutOfStock);
+        public int OutOfStockItems => InventoryStatus.Count(i => i.IsOutOfStock);
+        public int NormalStockItems => InventoryStatus.Count(i => !i.IsLowStock && !i.IsOutOfStock);
+
+        // 基於實際庫存狀態的服務水準
+        public string ActualServiceLevelDisplay
+        {
+            get
+            {
+                var inStockItems = InventoryStatus.Count(i => !i.IsOutOfStock);
+                var totalItems = InventoryStatus.Count;
+                return totalItems > 0 ? $"{((decimal)inStockItems / totalItems * 100):F1}%" : "100%";
+            }
+        }
     }
 
     // 品檢作業 ViewModel

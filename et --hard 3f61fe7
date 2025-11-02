@@ -1,0 +1,31 @@
+[33m3f61fe7[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m)[m fix: Flower 實體的配置
+[33m44da75d[m fix: 修正 Flower 型別2
+[33m276a93b[m fix: 修正 Flower 型別
+[33m1cb2eee[m 修正 Flower 型別
+[33m782410b[m fix: 修復 花卉清單資料儲存問題
+[33mbb9265d[m fix: 修改 視圖按鈕2
+[33mf422448[m fix: 修改 視圖按鈕
+[33m2134e36[m fix: 創建 花卉清單和批次管理頁面 視圖
+[33m12134cf[m fix: 修復 EnhancedInventoryViewModel 命名空間衝突問題
+[33ma9cd6a4[m fix: 修正資料庫遷移
+[33m060a37b[m fix: 修復 頁面渲染問題
+[33m84d0393[m fix: 更改年份2
+[33mf8a51e5[m fix: 更改年份
+[33me0234f9[m fix: 修復 PostgreSQL 時間戳問題和資料庫遷移
+[33m1bd5b52[m 修復資料庫連線檢查的無限迴圈
+[33mb36bfe7[m fix: 添加端口綁定以解決 Render 部署問題
+[33mdcef59b[m 三次更新資料庫連線
+[33m31c6abb[m 更新資料庫連線設定 二次修復 PostgreSQL 連線問題
+[33mf2d25da[m 更新資料庫連線設定以修復 PostgreSQL 連線問題
+[33m29edecd[m 更新 AssemblyInfo 檔案
+[33md658b94[m 更新 AssemblyInfo 檔案
+[33m8b9b56b[m feat: 完成 PostgreSQL 遷移
+[33m1f7941f[m 修正 EnhancedInventoryService 內安全庫存計算邏輯
+[33m8fa8338[m 更新 Dockerfile、專案設定
+[33mc76ae42[m Connect to Render PostgreSQL database
+[33mcc0903e[m Add .gitignore and remove build artifacts from tracking
+[33m2253230[m Clean up tracked build artifacts using .gitignore
+[33ma7f29ca[m Merge branch 'main' of https://github.com/chen-source025/FlowerInventory
+[33m2183c2b[m Add Dockerfile for Render deployment
+[33mdae237e[m Initial commit
+[33m4b01bdb[m Initial commit

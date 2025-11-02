@@ -1,0 +1,113 @@
+@model FlowerInventory.Models.Flower
+
+@{
+    ViewData["Title"] = "花卉詳情";
+}
+
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="fas fa-info-circle text-success"></i> 花卉詳情</h2>
+        <a href="@Url.Action("Index")" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left"></i> 返回清單
+        </a>
+    </div>
+
+    <div class="card shadow">
+        <div class="card-header bg-success text-white">
+            <h5 class="card-title mb-0">@Model.Name 的詳細資訊</h5>
+        </div>
+        <div class="card-body">
+            <dl class="row">
+                <dt class="col-sm-3">花名</dt>
+                <dd class="col-sm-9">@Model.Name</dd>
+
+                <dt class="col-sm-3">品種</dt>
+                <dd class="col-sm-9">@(Model.Variety ?? "無")</dd>
+
+                <dt class="col-sm-3">分類</dt>
+                <dd class="col-sm-9">
+                    <span class="badge bg-info">@Model.Category</span>
+                </dd>
+
+                <dt class="col-sm-3">ABC分類</dt>
+                <dd class="col-sm-9">
+                    <span class="badge @GetABCClassBadge(Model.ABCClass)">@Model.ABCClass 類</span>
+                </dd>
+
+                <dt class="col-sm-3">保存天數</dt>
+                <dd class="col-sm-9">@Model.ShelfLifeDays 天</dd>
+
+                <dt class="col-sm-3">單價</dt>
+                <dd class="col-sm-9">@(Model.Price?.ToString("C0") ?? "未設定")</dd>
+
+                <dt class="col-sm-3">季節係數</dt>
+                <dd class="col-sm-9">@Model.SeasonalFactor.ToString("F1")</dd>
+
+                <dt class="col-sm-3">品檢合格率</dt>
+                <dd class="col-sm-9">
+                    <div class="progress" style="height: 20px;">
+                        @{
+                            var passRate = Model.InspectionPassRate;
+                            var progressClass = passRate >= 0.8m ? "bg-success" : 
+                                                        passRate >= 0.6m ? "bg-warning" : "bg-danger";
+                        }
+                        <div class="progress-bar @progressClass" 
+                             style="width: @(passRate * 100)%;">
+                            @(passRate.ToString("P1"))
+                        </div>
+                    </div>
+                </dd>
+
+                <dt class="col-sm-3">補貨提前期</dt>
+                <dd class="col-sm-9">@Model.LeadTimeDays 天</dd>
+
+                <dt class="col-sm-3">建立日期</dt>
+                <dd class="col-sm-9">@Model.CreatedDate.ToString("yyyy/MM/dd HH:mm")</dd>
+
+                @if (Model.Batches?.Any() == true)
+                {
+                    <dt class="col-sm-3">有效批次</dt>
+                    <dd class="col-sm-9">
+                        @foreach (var batch in Model.Batches.Where(b => b.Status == BatchStatus.Active))
+                        {
+                            <span class="badge bg-primary me-1">
+                                @batch.BatchNo: @batch.QuantityPassed 株
+                            </span>
+                        }
+                    </dd>
+                }
+            </dl>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        // 互動功能
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('花卉詳情頁面載入完成');
+            
+            // 等添加 互動效果
+            const progressBar = document.querySelector('.progress-bar');
+            if (progressBar) {
+                progressBar.addEventListener('click', function() {
+                    const currentWidth = this.style.width;
+                    alert('當前合格率: ' + currentWidth);
+                });
+            }
+        });
+    </script>
+}
+
+@functions {
+    string GetABCClassBadge(string abcClass)
+    {
+        return abcClass switch
+        {
+            "A" => "bg-danger",
+            "B" => "bg-warning", 
+            "C" => "bg-success",
+            _ => "bg-secondary"
+        };
+    }
+}

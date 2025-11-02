@@ -1,0 +1,104 @@
+@model FlowerInventory.Models.Flower
+
+@{
+    ViewData["Title"] = "編輯花卉";
+}
+
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="fas fa-edit text-success"></i> 編輯花卉</h2>
+        <a href="@Url.Action("Index")" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left"></i> 返回清單
+        </a>
+    </div>
+
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card shadow">
+                <div class="card-header bg-success text-white">
+                    <h5 class="card-title mb-0">編輯花卉資料</h5>
+                </div>
+                <div class="card-body">
+                    <form asp-action="Edit" method="post">
+                        <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+                        <input type="hidden" asp-for="Id" />
+
+                        <div class="form-group mb-3">
+                            <label asp-for="Name" class="control-label">花名</label>
+                            <input asp-for="Name" class="form-control" />
+                            <span asp-validation-for="Name" class="text-danger"></span>
+                        </div>
+
+                        <div class="form-group mb-3">
+                            <label asp-for="Variety" class="control-label">品種 (可選)</label>
+                            <input asp-for="Variety" class="form-control" />
+                            <span asp-validation-for="Variety" class="text-danger"></span>
+                        </div>
+
+                        <div class="form-group mb-3">
+                            <label asp-for="Category" class="control-label">分類</label>
+                            <select asp-for="Category" class="form-control">
+                                <option value="常駐型">常駐型</option>
+                                <option value="宗教型">宗教型</option>
+                                <option value="季節性">季節性</option>
+                                <option value="流行性">流行性</option>
+                            </select>
+                            <span asp-validation-for="Category" class="text-danger"></span>
+                        </div>
+
+                        <div class="form-group mb-3">
+                            <label asp-for="ABCClass" class="control-label">ABC分類</label>
+                            <select asp-for="ABCClass" class="form-control">
+                                <option value="A">A類 (重要)</option>
+                                <option value="B">B類 (中等)</option>
+                                <option value="C">C類 (一般)</option>
+                            </select>
+                            <span asp-validation-for="ABCClass" class="text-danger"></span>
+                        </div>
+
+                        <div class="form-group mb-3">
+                            <label asp-for="ShelfLifeDays" class="control-label">保存天數</label>
+                            <input asp-for="ShelfLifeDays" class="form-control" type="number" min="1" max="365" />
+                            <span asp-validation-for="ShelfLifeDays" class="text-danger"></span>
+                        </div>
+
+                        <div class="form-group mb-3">
+                            <label asp-for="Price" class="control-label">單價</label>
+                            <input asp-for="Price" class="form-control" type="number" step="0.01" min="0.01" />
+                            <span asp-validation-for="Price" class="text-danger"></span>
+                        </div>
+
+                        <div class="form-group mb-3">
+                            <label asp-for="SeasonalFactor" class="control-label">季節係數</label>
+                            <input asp-for="SeasonalFactor" class="form-control" type="number" step="0.1" min="0.1" max="3.0" />
+                            <span asp-validation-for="SeasonalFactor" class="text-danger"></span>
+                        </div>
+
+                        <div class="form-group mb-3">
+                            <label asp-for="InspectionPassRate" class="control-label">品檢合格率</label>
+                            <input asp-for="InspectionPassRate" class="form-control" type="number" step="0.01" min="0.1" max="1.0" />
+                            <span asp-validation-for="InspectionPassRate" class="text-danger"></span>
+                        </div>
+
+                        <div class="form-group mb-3">
+                            <label asp-for="LeadTimeDays" class="control-label">補貨提前期 (天)</label>
+                            <input asp-for="LeadTimeDays" class="form-control" type="number" min="1" max="90" />
+                            <span asp-validation-for="LeadTimeDays" class="text-danger"></span>
+                        </div>
+
+                        <div class="form-group text-center">
+                            <button type="submit" class="btn btn-success btn-lg">
+                                <i class="fas fa-check"></i> 儲存變更
+                            </button>
+                            <a href="@Url.Action("Index")" class="btn btn-secondary btn-lg">取消</a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+}

@@ -5,6 +5,7 @@ using FlowerInventory.Services;
 using FlowerInventory.Utilities;
 using FlowerInventory.ViewModels;
 using System.ComponentModel.DataAnnotations;
+using Microsoft.AspNetCore.Mvc.Rendering;
 
 namespace FlowerInventory.Controllers
 {
@@ -51,7 +52,7 @@ namespace FlowerInventory.Controllers
                     .OrderBy(f => f.Name)
                     .ToListAsync();
 
-                ViewBag.Flowers = flowers;
+                ViewBag.Flowers = new SelectList(flowers, "Id", "Name");
                 return View();
             }
             catch (Exception ex)
@@ -281,7 +282,7 @@ namespace FlowerInventory.Controllers
                 if (!ModelState.IsValid)
                 {
                     _logger.LogWarning("出貨作業模型驗證失敗");
-                    await ReloadFlowersViewBag();
+                    await ReloadAvailableFlowers(model);    // 載入可用花卉
                     return View(model);
                 }
 
@@ -293,7 +294,7 @@ namespace FlowerInventory.Controllers
                 if (flower == null)
                 {
                     ModelState.AddModelError("", "花卉不存在");
-                    await ReloadFlowersViewBag();
+                    await ReloadAvailableFlowers(model);
                     return View(model);
                 }
 
@@ -634,6 +635,26 @@ namespace FlowerInventory.Controllers
             var prefix = flower.Name.Length > 0 ? flower.Name.Substring(0, 1).ToUpper() : "F";
             var timestamp = DateTime.UtcNow.ToString("yyyyMMddHHmmss");
             return $"{prefix}{timestamp}";
+        }
+
+        private async Task ReloadAvailableFlowers(ShipmentViewModel model)
+        {
+            var allFlowers = await _context.Flowers
+                .Include(f => f.Batches)
+                .OrderBy(f => f.Name)
+                .ToListAsync();
+
+            var flowersWithStock = new List<Flower>();
+            foreach (var flower in allFlowers)
+            {
+                var stock = await _inventoryService.CalculateCurrentStockAsync(flower.Id);
+                if (stock > 0)
+                {
+                    flowersWithStock.Add(flower);
+                }
+            }
+
+            model.AvailableFlowers = flowersWithStock;
         }
 
         private string GetBatchStatusDescription(BatchStatus status)
