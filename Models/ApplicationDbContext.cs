@@ -17,8 +17,6 @@ namespace FlowerInventory.Models
         {
             base.OnModelCreating(modelBuilder);
 
-            modelBuilder.HasPostgresExtension("uuid-ossp");
-
             modelBuilder.Entity<Flower>(entity =>
             {
                 entity.HasKey(e => e.Id);
@@ -91,27 +89,6 @@ namespace FlowerInventory.Models
 
             // 索引配置
             modelBuilder.Entity<Flower>()
-                .HasIndex(f => f.Name)
-                .IsUnique();
-
-            modelBuilder.Entity<Flower>()
-                .HasIndex(f => f.Category);
-
-            modelBuilder.Entity<Flower>()
-                .HasIndex(f => f.ABCClass);
-
-            modelBuilder.Entity<Batch>()
-                .HasIndex(b => b.BatchNo)
-                .IsUnique();
-
-            modelBuilder.Entity<Batch>()
-                .HasIndex(b => b.ReceivedDate);
-
-            modelBuilder.Entity<Batch>()
-                .HasIndex(b => b.ExpiryDate);
-
-            modelBuilder.Entity<Batch>()
-                .HasIndex(b => b.Status); modelBuilder.Entity<Flower>()
                 .HasIndex(f => f.Name)
                 .IsUnique();
 

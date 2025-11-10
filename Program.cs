@@ -54,9 +54,7 @@ try
         var context = services.GetRequiredService<ApplicationDbContext>();
 
         Console.WriteLine("🔍 嘗試連接 PostgreSQL...");
-
-        // 給資料庫一些啟動時間
-        await Task.Delay(3000);
+        await Task.Delay(3000); // 給資料庫一些啟動時間
 
         var maxRetries = 3;
         for (int i = 0; i < maxRetries; i++)
@@ -64,20 +62,18 @@ try
             try
             {
                 var canConnect = await context.Database.CanConnectAsync();
-
                 if (canConnect)
                 {
                     Console.WriteLine("✅ PostgreSQL 連線成功！");
 
-                    // 檢查資料庫中現有的花卉數量
+                    await context.Database.MigrateAsync();
+                    Console.WriteLine("✅ 資料庫遷移完成");
+
+                    // 檢查現有資料
                     var flowerCount = await context.Flowers.CountAsync();
                     Console.WriteLine($"📊 當前資料庫中有 {flowerCount} 筆花卉資料");
 
-                    // 確保資料庫存在
-                    await context.Database.EnsureCreatedAsync();
-                    Console.WriteLine("✅ 資料庫確保建立完成");
-
-                    // 嘗試植入種子資料（只有當沒有資料時）
+                    // 植入種子資料 (只當沒有資料時)
                     if (flowerCount == 0)
                     {
                         try
@@ -91,12 +87,7 @@ try
                             Console.WriteLine($"⚠️ 種子資料植入警告: {seedEx.Message}");
                         }
                     }
-                    else
-                    {
-                        Console.WriteLine("✅ 資料庫已有資料，跳過種子資料植入");
-                    }
-
-                    break; // 成功連接，跳出重試循環
+                    break;
                 }
             }
             catch (Exception ex)
@@ -107,10 +98,6 @@ try
                     Console.WriteLine("🔄 等待 5 秒後重試...");
                     await Task.Delay(5000);
                 }
-                else
-                {
-                    Console.WriteLine("❌ 所有連接嘗試都失敗，但應用程式繼續啟動");
-                }
             }
         }
     }
@@ -118,7 +105,6 @@ try
 catch (Exception ex)
 {
     Console.WriteLine($"⚠️ 資料庫初始化警告: {ex.Message}");
-    Console.WriteLine("應用程式將繼續啟動，但資料庫功能可能受限");
 }
 
 // ========== 啟動應用程式 ==========
