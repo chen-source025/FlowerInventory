@@ -49,7 +49,7 @@ namespace FlowerInventory.Controllers
                 RequestId = Activity.Current?.Id ?? HttpContext.TraceIdentifier
             };
 
-            _logger.LogError("發生未處理的錯誤，RequestId: {RequestId}", errorViewModel.RequestId);
+            _logger.LogError("發生未處理的錯誤, RequestId: {RequestId}", errorViewModel.RequestId);
             return View(errorViewModel);
         }
 
@@ -60,7 +60,7 @@ namespace FlowerInventory.Controllers
             {
                 Version = "1.0.0",
                 Framework = ".NET 8.0",
-                Database = "SQL Server",
+                Database = "PostgreSQL",
                 LastUpdated = DateTime.UtcNow.ToString("yyyy/MM/dd HH:mm:ss"),
                 Developer = "花卉庫存管理系統團隊",
                 Environment = HttpContext.Request.Host.Host.Contains("localhost") ? "開發環境" : "生產環境"

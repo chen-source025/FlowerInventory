@@ -1,153 +1,166 @@
--- cSpell:ignore FULLSCAN
--- FlowerInventory 資料庫優化腳本
--- 在 SQL Server Management Studio 中執行
-
-USE [FlowerInventoryDb];
-GO
+-- FlowerInventory PostgreSQL 資料庫優化腳本
+-- 在 PostgreSQL 中執行
 
 -- 1. 複合索引提升查詢效能
-IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_Transactions_FlowerId_Date')
+DO $$ 
 BEGIN
-    CREATE NONCLUSTERED INDEX IX_Transactions_FlowerId_Date 
-    ON [dbo].[Transactions] ([FlowerId], [TransactionDate] DESC)
-    INCLUDE ([ChangeQty], [TransactionType]);
-    PRINT '建立索引 IX_Transactions_FlowerId_Date';
-END
-ELSE
-    PRINT '索引 IX_Transactions_FlowerId_Date 已存在';
+    IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'ix_transactions_flowerid_date') THEN
+        CREATE INDEX ix_transactions_flowerid_date 
+        ON "Transactions" ("FlowerId", "TransactionDate" DESC, "ChangeQty", "TransactionType");
+        RAISE NOTICE '建立索引 ix_transactions_flowerid_date';
+    ELSE
+        RAISE NOTICE '索引 ix_transactions_flowerid_date 已存在';
+    END IF;
+END $$;
 
--- 2. 包含性索引
-IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_Batches_Status_Expiry')
+-- 2. 包含性索引（使用複合索引替代 INCLUDE）
+DO $$ 
 BEGIN
-    CREATE NONCLUSTERED INDEX IX_Batches_Status_Expiry 
-    ON [dbo].[Batches] ([Status]) 
-    INCLUDE ([ExpiryDate], [QuantityPassed], [FlowerId]);
-    PRINT '建立索引 IX_Batches_Status_Expiry';
-END
-ELSE
-    PRINT '索引 IX_Batches_Status_Expiry 已存在';
+    IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'ix_batches_status_expiry') THEN
+        CREATE INDEX ix_batches_status_expiry 
+        ON "Batches" ("Status", "ExpiryDate", "QuantityPassed", "FlowerId");
+        RAISE NOTICE '建立索引 ix_batches_status_expiry';
+    ELSE
+        RAISE NOTICE '索引 ix_batches_status_expiry 已存在';
+    END IF;
+END $$;
 
 -- 3. 花卉查詢優化索引
-IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_Flowers_Category_ABC')
+DO $$ 
 BEGIN
-    CREATE NONCLUSTERED INDEX IX_Flowers_Category_ABC 
-    ON [dbo].[Flowers] ([Category], [ABCClass])
-    INCLUDE ([Name], [Price], [ShelfLifeDays]);
-    PRINT '建立索引 IX_Flowers_Category_ABC';
-END
-ELSE
-    PRINT '索引 IX_Flowers_Category_ABC 已存在';
+    IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'ix_flowers_category_abc') THEN
+        CREATE INDEX ix_flowers_category_abc 
+        ON "Flowers" ("Category", "ABCClass", "Name", "Price", "ShelfLifeDays");
+        RAISE NOTICE '建立索引 ix_flowers_category_abc';
+    ELSE
+        RAISE NOTICE '索引 ix_flowers_category_abc 已存在';
+    END IF;
+END $$;
 
--- 4. 建立庫存預警預存程序
-IF OBJECT_ID('sp_GetInventoryAlerts', 'P') IS NOT NULL
-    DROP PROCEDURE sp_GetInventoryAlerts;
-GO
-
-CREATE PROCEDURE sp_GetInventoryAlerts
-AS
+-- 4. 建立庫存預警函數
+CREATE OR REPLACE FUNCTION get_inventory_alerts()
+RETURNS TABLE (
+    flower_id integer,
+    flower_name text,
+    abc_class text,
+    category text,
+    current_stock bigint,
+    price numeric,
+    total_value numeric,
+    alert_level text
+) AS $$
 BEGIN
-    SET NOCOUNT ON;
-    
+    RETURN QUERY
     SELECT 
-        f.Id as FlowerId,
-        f.Name as FlowerName,
-        f.ABCClass,
-        f.Category,
-        ISNULL(SUM(b.QuantityPassed), 0) as CurrentStock,
-        f.Price,
-        ISNULL(SUM(b.QuantityPassed), 0) * f.Price as TotalValue,
+        f."Id" as flower_id,
+        f."Name" as flower_name,
+        f."ABCClass" as abc_class,
+        f."Category" as category,
+        COALESCE(SUM(b."QuantityPassed"), 0) as current_stock,
+        f."Price" as price,
+        COALESCE(SUM(b."QuantityPassed"), 0) * f."Price" as total_value,
         CASE 
-            WHEN ISNULL(SUM(b.QuantityPassed), 0) = 0 THEN '缺貨'
-            WHEN ISNULL(SUM(b.QuantityPassed), 0) < f.LeadTimeDays * 2 THEN '緊急補貨'
-            WHEN ISNULL(SUM(b.QuantityPassed), 0) < f.LeadTimeDays * 4 THEN '建議補貨'
+            WHEN COALESCE(SUM(b."QuantityPassed"), 0) = 0 THEN '缺貨'
+            WHEN COALESCE(SUM(b."QuantityPassed"), 0) < f."LeadTimeDays" * 2 THEN '緊急補貨'
+            WHEN COALESCE(SUM(b."QuantityPassed"), 0) < f."LeadTimeDays" * 4 THEN '建議補貨'
             ELSE '正常'
-        END as AlertLevel
-    FROM Flowers f
-    LEFT JOIN Batches b ON f.Id = b.FlowerId AND b.Status = 3 -- Active status
-    GROUP BY f.Id, f.Name, f.ABCClass, f.Category, f.Price, f.LeadTimeDays
-    HAVING ISNULL(SUM(b.QuantityPassed), 0) < f.LeadTimeDays * 4  -- 庫存少於4天需求
-    ORDER BY AlertLevel, f.ABCClass;
-END
-GO
-PRINT '建立預存程序 sp_GetInventoryAlerts';
-
--- 5. 建立交易統計預存程序
-IF OBJECT_ID('sp_GetTransactionSummary', 'P') IS NOT NULL
-    DROP PROCEDURE sp_GetTransactionSummary;
-GO
-
-CREATE PROCEDURE sp_GetTransactionSummary
-    @StartDate DATE,
-    @EndDate DATE
-AS
-BEGIN
-    SET NOCOUNT ON;
-    
-    SELECT 
-        f.Name as FlowerName,
-        f.Category,
-        COUNT(*) as TransactionCount,
-        SUM(CASE WHEN t.TransactionType = 1 THEN t.ChangeQty ELSE 0 END) as TotalInbound,
-        SUM(CASE WHEN t.TransactionType = 2 THEN ABS(t.ChangeQty) ELSE 0 END) as TotalOutbound,
-        AVG(CASE WHEN t.TransactionType = 2 THEN ABS(t.ChangeQty) ELSE NULL END) as AvgDailyOutbound
-    FROM Transactions t
-    INNER JOIN Flowers f ON t.FlowerId = f.Id
-    WHERE t.TransactionDate BETWEEN @StartDate AND @EndDate
-    GROUP BY f.Name, f.Category
-    ORDER BY TotalOutbound DESC;
-END
-GO
-PRINT '建立預存程序 sp_GetTransactionSummary';
-
--- 6. 建立批次到期預警預存程序
-IF OBJECT_ID('sp_GetExpiringBatches', 'P') IS NOT NULL
-    DROP PROCEDURE sp_GetExpiringBatches;
-GO
-
-CREATE PROCEDURE sp_GetExpiringBatches
-    @DaysThreshold INT = 7
-AS
-BEGIN
-    SET NOCOUNT ON;
-    
-    SELECT 
-        b.BatchNo,
-        f.Name as FlowerName,
-        b.QuantityPassed,
-        b.ExpiryDate,
-        DATEDIFF(DAY, GETDATE(), b.ExpiryDate) as DaysUntilExpiry,
+        END as alert_level
+    FROM "Flowers" f
+    LEFT JOIN "Batches" b ON f."Id" = b."FlowerId" AND b."Status" = 3 -- Active status
+    GROUP BY f."Id", f."Name", f."ABCClass", f."Category", f."Price", f."LeadTimeDays"
+    HAVING COALESCE(SUM(b."QuantityPassed"), 0) < f."LeadTimeDays" * 4  -- 庫存少於4天需求
+    ORDER BY 
         CASE 
-            WHEN DATEDIFF(DAY, GETDATE(), b.ExpiryDate) <= 3 THEN '緊急'
-            WHEN DATEDIFF(DAY, GETDATE(), b.ExpiryDate) <= 7 THEN '注意'
+            WHEN COALESCE(SUM(b."QuantityPassed"), 0) = 0 THEN 1
+            WHEN COALESCE(SUM(b."QuantityPassed"), 0) < f."LeadTimeDays" * 2 THEN 2
+            WHEN COALESCE(SUM(b."QuantityPassed"), 0) < f."LeadTimeDays" * 4 THEN 3
+            ELSE 4
+        END,
+        f."ABCClass";
+END;
+$$ LANGUAGE plpgsql;
+
+-- 5. 建立交易統計函數
+CREATE OR REPLACE FUNCTION get_transaction_summary(
+    start_date date,
+    end_date date
+)
+RETURNS TABLE (
+    flower_name text,
+    category text,
+    transaction_count bigint,
+    total_inbound numeric,
+    total_outbound numeric,
+    avg_daily_outbound numeric
+) AS $$
+BEGIN
+    RETURN QUERY
+    SELECT 
+        f."Name" as flower_name,
+        f."Category" as category,
+        COUNT(*) as transaction_count,
+        SUM(CASE WHEN t."TransactionType" = 1 THEN t."ChangeQty" ELSE 0 END) as total_inbound,
+        SUM(CASE WHEN t."TransactionType" = 2 THEN ABS(t."ChangeQty") ELSE 0 END) as total_outbound,
+        AVG(CASE WHEN t."TransactionType" = 2 THEN ABS(t."ChangeQty") ELSE NULL END) as avg_daily_outbound
+    FROM "Transactions" t
+    INNER JOIN "Flowers" f ON t."FlowerId" = f."Id"
+    WHERE t."TransactionDate" BETWEEN start_date AND end_date
+    GROUP BY f."Name", f."Category"
+    ORDER BY total_outbound DESC;
+END;
+$$ LANGUAGE plpgsql;
+
+-- 6. 建立批次到期預警函數
+CREATE OR REPLACE FUNCTION get_expiring_batches(
+    days_threshold integer DEFAULT 7
+)
+RETURNS TABLE (
+    batch_no text,
+    flower_name text,
+    quantity_passed integer,
+    expiry_date timestamp with time zone,
+    days_until_expiry integer,
+    alert_level text
+) AS $$
+BEGIN
+    RETURN QUERY
+    SELECT 
+        b."BatchNo" as batch_no,
+        f."Name" as flower_name,
+        b."QuantityPassed" as quantity_passed,
+        b."ExpiryDate" as expiry_date,
+        EXTRACT(DAY FROM (b."ExpiryDate" - NOW()))::integer as days_until_expiry,
+        CASE 
+            WHEN EXTRACT(DAY FROM (b."ExpiryDate" - NOW())) <= 3 THEN '緊急'
+            WHEN EXTRACT(DAY FROM (b."ExpiryDate" - NOW())) <= 7 THEN '注意'
             ELSE '正常'
-        END as AlertLevel
-    FROM Batches b
-    INNER JOIN Flowers f ON b.FlowerId = f.Id
-    WHERE b.ExpiryDate IS NOT NULL 
-        AND b.ExpiryDate <= DATEADD(DAY, @DaysThreshold, GETDATE())
-        AND b.Status = 3 -- Active batches only
-        AND b.QuantityPassed > 0
-    ORDER BY b.ExpiryDate ASC;
-END
-GO
-PRINT '建立預存程序 sp_GetExpiringBatches';
+        END as alert_level
+    FROM "Batches" b
+    INNER JOIN "Flowers" f ON b."FlowerId" = f."Id"
+    WHERE b."ExpiryDate" IS NOT NULL 
+        AND b."ExpiryDate" <= (NOW() + (days_threshold || ' days')::interval)
+        AND b."Status" = 3 -- Active batches only
+        AND b."QuantityPassed" > 0
+    ORDER BY b."ExpiryDate" ASC;
+END;
+$$ LANGUAGE plpgsql;
 
 -- 7. 更新統計資訊
-PRINT '開始更新統計資訊...';
-UPDATE STATISTICS Flowers WITH FULLSCAN;
-UPDATE STATISTICS Batches WITH FULLSCAN;
-UPDATE STATISTICS Transactions WITH FULLSCAN;
-PRINT '統計資訊更新完成';
+ANALYZE "Flowers";
+ANALYZE "Batches";
+ANALYZE "Transactions";
 
 -- 8. 顯示優化結果
-PRINT '=== 資料庫優化完成 ===';
-PRINT '已建立的索引:';
-PRINT '- IX_Transactions_FlowerId_Date (交易查詢優化)';
-PRINT '- IX_Batches_Status_Expiry (批次狀態查詢優化)';
-PRINT '- IX_Flowers_Category_ABC (花卉分類查詢優化)';
-PRINT '';
-PRINT '已建立的預存程序:';
-PRINT '- sp_GetInventoryAlerts (庫存預警)';
-PRINT '- sp_GetTransactionSummary (交易統計)';
-PRINT '- sp_GetExpiringBatches (到期批次預警)';
-GO
+DO $$
+BEGIN
+    RAISE NOTICE '=== 資料庫優化完成 ===';
+    RAISE NOTICE '已建立的索引:';
+    RAISE NOTICE '- ix_transactions_flowerid_date (交易查詢優化)';
+    RAISE NOTICE '- ix_batches_status_expiry (批次狀態查詢優化)';
+    RAISE NOTICE '- ix_flowers_category_abc (花卉分類查詢優化)';
+    RAISE NOTICE '';
+    RAISE NOTICE '已建立的函數:';
+    RAISE NOTICE '- get_inventory_alerts() (庫存預警)';
+    RAISE NOTICE '- get_transaction_summary() (交易統計)';
+    RAISE NOTICE '- get_expiring_batches() (到期批次預警)';
+END $$;
