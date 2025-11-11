@@ -53,7 +53,7 @@ public class Batch
 
     public bool IsExpired =>
         ExpiryDate.HasValue &&
-        ExpiryDate.Value >= DateTime.Today &&
+        ExpiryDate.Value < DateTime.Today &&
         ExpiryDate.Value <= DateTime.Today.AddDays(3);
 
     [NotMapped]
