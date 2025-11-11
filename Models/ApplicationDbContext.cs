@@ -151,7 +151,7 @@ namespace FlowerInventory.Models
                 {
                     Id = 1,
                     Name = "黃金葛",
-                    Variety = "普通",
+                    Variety = "藤本",
                     Category = "常駐型",
                     ABCClass = "C",
                     ShelfLifeDays = 30,
@@ -165,7 +165,7 @@ namespace FlowerInventory.Models
                 {
                     Id = 2,
                     Name = "火鶴",
-                    Variety = "紅火鶴",
+                    Variety = "草本",
                     Category = "常駐型",
                     ABCClass = "A",
                     ShelfLifeDays = 14,
@@ -180,8 +180,8 @@ namespace FlowerInventory.Models
                 new Flower
                 {
                     Id = 3,
-                    Name = "蒼蘭",
-                    Variety = "普通",
+                    Name = "小蒼蘭",
+                    Variety = "小型球莖",
                     Category = "宗教型",
                     ABCClass = "B",
                     ShelfLifeDays = 10,
@@ -195,7 +195,7 @@ namespace FlowerInventory.Models
                 {
                     Id = 4,
                     Name = "茱萸",
-                    Variety = "普通",
+                    Variety = "常綠帶香",
                     Category = "宗教型",
                     ABCClass = "B",
                     ShelfLifeDays = 12,
@@ -209,7 +209,7 @@ namespace FlowerInventory.Models
                 {
                     Id = 5,
                     Name = "抹草",
-                    Variety = "普通",
+                    Variety = "銳葉小槐花",
                     Category = "宗教型",
                     ABCClass = "C",
                     ShelfLifeDays = 15,
@@ -223,7 +223,7 @@ namespace FlowerInventory.Models
                 {
                     Id = 6,
                     Name = "芙蓉",
-                    Variety = "普通",
+                    Variety = "落葉灌木",
                     Category = "宗教型",
                     ABCClass = "B",
                     ShelfLifeDays = 8,
@@ -239,7 +239,7 @@ namespace FlowerInventory.Models
                 {
                     Id = 7,
                     Name = "紫薇",
-                    Variety = "普通",
+                    Variety = "落葉灌木",
                     Category = "季節性",
                     ABCClass = "B",
                     ShelfLifeDays = 9,
@@ -253,7 +253,7 @@ namespace FlowerInventory.Models
                 {
                     Id = 8,
                     Name = "菊花",
-                    Variety = "黃菊",
+                    Variety = "草本",
                     Category = "季節性",
                     ABCClass = "B",
                     ShelfLifeDays = 11,
@@ -267,7 +267,7 @@ namespace FlowerInventory.Models
                 {
                     Id = 9,
                     Name = "金桔",
-                    Variety = "盆栽",
+                    Variety = "常綠灌木",
                     Category = "季節性",
                     ABCClass = "A",
                     ShelfLifeDays = 20,
@@ -282,36 +282,8 @@ namespace FlowerInventory.Models
                 new Flower
                 {
                     Id = 10,
-                    Name = "多肉植物",
-                    Variety = "混合",
-                    Category = "流行性",
-                    ABCClass = "C",
-                    ShelfLifeDays = 25,
-                    Price = 90,
-                    SeasonalFactor = 1.0m,
-                    InspectionPassRate = 0.95m,
-                    LeadTimeDays = 7,
-                    CreatedDate = DateTime.UtcNow
-                },
-                new Flower
-                {
-                    Id = 11,
-                    Name = "塊根植物",
-                    Variety = "混合",
-                    Category = "流行性",
-                    ABCClass = "C",
-                    ShelfLifeDays = 28,
-                    Price = 110,
-                    SeasonalFactor = 1.0m,
-                    InspectionPassRate = 0.92m,
-                    LeadTimeDays = 7,
-                    CreatedDate = DateTime.UtcNow
-                },
-                new Flower
-                {
-                    Id = 12,
                     Name = "蝶豆花",
-                    Variety = "藍色",
+                    Variety = "蝶豆屬",
                     Category = "流行性",
                     ABCClass = "A",
                     ShelfLifeDays = 7,
@@ -323,9 +295,23 @@ namespace FlowerInventory.Models
                 },
                 new Flower
                 {
-                    Id = 13,
+                    Id = 11,
+                    Name = "蝴蝶蘭",
+                    Variety = "蘭花",
+                    Category = "流行性",
+                    ABCClass = "A",
+                    ShelfLifeDays = 15,
+                    Price = 220,
+                    SeasonalFactor = 1.7m,
+                    InspectionPassRate = 0.65m,
+                    LeadTimeDays = 7,
+                    CreatedDate = DateTime.UtcNow
+                },
+                new Flower
+                {
+                    Id = 12,
                     Name = "石斛蘭",
-                    Variety = "蝴蝶蘭",
+                    Variety = "草本",
                     Category = "流行性",
                     ABCClass = "A",
                     ShelfLifeDays = 12,
@@ -337,9 +323,65 @@ namespace FlowerInventory.Models
                 },
                 new Flower
                 {
+                    Id = 13,
+                    Name = "盆栽",
+                    Variety = "盆栽",
+                    Category = "流行性",
+                    ABCClass = "C",
+                    ShelfLifeDays = 35,
+                    Price = 95,
+                    SeasonalFactor = 1.1m,
+                    InspectionPassRate = 0.90m,
+                    LeadTimeDays = 7,
+                    CreatedDate = DateTime.UtcNow
+                },
+                new Flower
+                {
                     Id = 14,
+                    Name = "混合",
+                    Variety = "混合",
+                    Category = "流行性",
+                    ABCClass = "C",
+                    ShelfLifeDays = 20,
+                    Price = 85,
+                    SeasonalFactor = 1.2m,
+                    InspectionPassRate = 0.88m,
+                    LeadTimeDays = 7,
+                    CreatedDate = DateTime.UtcNow
+                },
+                new Flower
+                {
+                    Id = 15,
+                    Name = "多肉植物",
+                    Variety = "多肉植物",
+                    Category = "流行性",
+                    ABCClass = "C",
+                    ShelfLifeDays = 25,
+                    Price = 90,
+                    SeasonalFactor = 1.0m,
+                    InspectionPassRate = 0.95m,
+                    LeadTimeDays = 7,
+                    CreatedDate = DateTime.UtcNow
+                },
+                new Flower
+                {
+                    Id = 16,
+                    Name = "塊根植物",
+                    Variety = "塊根植物",
+                    Category = "流行性",
+                    ABCClass = "C",
+                    ShelfLifeDays = 28,
+                    Price = 110,
+                    SeasonalFactor = 1.0m,
+                    InspectionPassRate = 0.92m,
+                    LeadTimeDays = 7,
+                    CreatedDate = DateTime.UtcNow
+                },
+                new Flower
+                {
+                    Id = 17,
                     Name = "綠籬植物",
-                    Variety = "常綠",
+                    Variety = "綠籬植物",
                     Category = "流行性",
                     ABCClass = "C",
                     ShelfLifeDays = 30,

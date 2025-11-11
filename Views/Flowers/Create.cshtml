@@ -30,7 +30,27 @@
 
                         <div class="form-group mb-3">
                             <label asp-for="Variety" class="control-label">品種 (可選)</label>
-                            <input asp-for="Variety" class="form-control" placeholder="輸入品種名稱" />
+                            <select asp-for="Variety" class="form-control">
+                                <option value="">-- 請選擇品種 --</option>
+                                <option value="黃金葛">拎樹藤屬 多年生木質藤本</option>
+                                <option value="火鶴">花燭屬 多年生草本</option>
+                                <option value="小蒼蘭">香雪蘭屬 多年生球莖草本</option>
+                                <option value="茱萸">山茱萸屬 常綠帶香</option>
+                                <option value="抹草">山螞蝗屬 菊科植物</option>
+                                <option value="芙蓉">木槿屬 落葉灌木</option>
+                                <option value="紫薇">紫薇屬 落葉灌木</option>
+                                <option value="菊花">菊屬 多年生宿根草本</option>
+                                <option value="金桔">金桔屬 常綠灌木</option>
+                                <option value="蝶豆花">蝶豆屬</option>
+                                <option value="蝴蝶蘭">蝴蝶蘭屬 附生性蘭花</option>
+                                <option value="石斛蘭">石斛屬 多年生草本</option>
+                                <option value="盆栽">盆栽</option>
+                                <option value="混合">混合</option>
+                                <option value="多肉植物">多肉植物</option>
+                                <option value="塊根植物">塊根植物</option>
+                                <option value="綠籬植物">綠籬植物</option>
+                                <option value="其他">其他</option>
+                            </select>
                             <span asp-validation-for="Variety" class="text-danger"></span>
                         </div>
 

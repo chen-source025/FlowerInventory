@@ -199,7 +199,7 @@
             });
 
             // 批次詳情按鈕點擊事件
-            $('.batch-detail-btn').click(function () {
+            $(document).on('click', '.batch-detail-btn', function () {
                 const batchId = $(this).data('batch-id');
                 loadBatchDetails(batchId);
             });
