@@ -45,7 +45,7 @@ public class Batch
 
     // 導航屬性（非 null，使用 null-forgiving operator）
     [ForeignKey("FlowerId")]
-    public virtual Flower Flower { get; set; } = null!;
+    public virtual Flower? Flower { get; set; } = null!;
 
     // 計算屬性
     [NotMapped]

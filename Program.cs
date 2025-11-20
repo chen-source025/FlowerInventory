@@ -20,7 +20,7 @@ builder.Services.AddControllersWithViews();
 builder.Logging.ClearProviders();
 builder.Logging.AddConsole();
 builder.Logging.AddDebug();
-builder.Services.AddTransient<GlobalExceptionHandlerMiddleware>();
+// builder.Services.AddTransient<GlobalExceptionHandlerMiddleware>();
 
 var app = builder.Build();
 
@@ -69,6 +69,26 @@ try
                     await context.Database.MigrateAsync();
                     Console.WriteLine("✅ 資料庫遷移完成");
 
+                    // 對齊 Flowers.Id 的序列
+                    // 對齊 Batches.Id 的序列
+                    // 對齊 Transactions.Id 的序列
+                    await context.Database.ExecuteSqlRawAsync(@"
+                        SELECT setval(
+                        pg_get_serial_sequence('""Flowers""', 'Id'),
+                        COALESCE(MAX(""Id""), 1)
+                        )
+                        FROM ""Flowers"";
+                        SELECT setval(
+                        pg_get_serial_sequence('""Batches""', 'Id'),
+                        COALESCE(MAX(""Id""), 1)
+                        )
+                        FROM ""Batches"";
+                        SELECT setval(
+                        pg_get_serial_sequence('""Transactions""', 'Id'),
+                        COALESCE(MAX(""Id""), 1)
+                        )
+                        FROM ""Transactions"";
+                    ");
                     // 檢查現有資料
                     var flowerCount = await context.Flowers.CountAsync();
                     Console.WriteLine($"📊 當前資料庫中有 {flowerCount} 筆花卉資料");

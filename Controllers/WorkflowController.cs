@@ -72,6 +72,19 @@ namespace FlowerInventory.Controllers
                 if (!ModelState.IsValid)
                 {
                     _logger.LogWarning("進貨作業模型驗證失敗");
+                    // 🔍 把 ModelState 裡的錯誤逐一印出來
+                    foreach (var kvp in ModelState)
+                    {
+                        var field = kvp.Key;
+                        var state = kvp.Value;
+
+                        foreach (var error in state.Errors)
+                        {
+                            _logger.LogWarning("欄位 {Field} 驗證錯誤: {ErrorMessage}",
+                                field, error.ErrorMessage);
+                        }
+                    }
+
                     await ReloadFlowersViewBag();
                     return View(batch);
                 }
@@ -94,7 +107,23 @@ namespace FlowerInventory.Controllers
                 // 自動計算到期日
                 if (!batch.ExpiryDate.HasValue && flower.ShelfLifeDays.HasValue && flower.ShelfLifeDays > 0)
                 {
-                    batch.ExpiryDate = batch.ReceivedDate.AddDays(flower.ShelfLifeDays.Value);
+                    // 這裡的 batch.ReceivedDate 來自 HTML date, Kind = Unspecified
+                    // 先確保是日期本身，再轉成 UTC
+                    var receivedUtc = DateTime.SpecifyKind(batch.ReceivedDate.Date, DateTimeKind.Utc);
+                    batch.ReceivedDate = receivedUtc;
+
+                    var expiryUtc = receivedUtc.AddDays(flower.ShelfLifeDays.Value);
+                    batch.ExpiryDate = expiryUtc;
+                }
+                else
+                {
+                    // 如果前端已經算好 ExpiryDate，一樣補 Kind
+                    batch.ReceivedDate = DateTime.SpecifyKind(batch.ReceivedDate.Date, DateTimeKind.Utc);
+
+                    if (batch.ExpiryDate.HasValue)
+                    {
+                        batch.ExpiryDate = DateTime.SpecifyKind(batch.ExpiryDate.Value.Date, DateTimeKind.Utc);
+                    }
                 }
 
                 // 初始狀態設定

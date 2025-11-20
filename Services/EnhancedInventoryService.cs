@@ -1,15 +1,14 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Diagnostics;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using FlowerInventory.Models;
 using FlowerInventory.Utilities;
-using Npgsql;
 
 namespace FlowerInventory.Services
 {
@@ -17,7 +16,7 @@ namespace FlowerInventory.Services
     {
         private readonly ApplicationDbContext _context;
         private readonly ILogger<EnhancedInventoryService> _logger;
-        private readonly TimeSpan _defaultCacheDuration = TimeSpan.FromMinutes(5);
+        private readonly TimeSpan _defaultCacheDuration = TimeSpan.FromMinutes(1);
         private readonly MemoryCache _cache = new(new MemoryCacheOptions());
 
         public EnhancedInventoryService(
@@ -28,9 +27,12 @@ namespace FlowerInventory.Services
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
-        // ========== 公開 API ==========
+        // =====================================================
+        //  公開 API：庫存總覽 / 補貨建議 / 需求分析
+        // =====================================================
 
-        public async Task<List<EnhancedInventoryViewModel>> GetEnhancedInventoryStatusAsync(CancellationToken cancellationToken = default)
+        public async Task<List<EnhancedInventoryViewModel>> GetEnhancedInventoryStatusAsync(
+            CancellationToken cancellationToken = default)
         {
             const string cacheKey = "InventoryStatus";
 
@@ -46,51 +48,35 @@ namespace FlowerInventory.Services
             {
                 var flowers = await _context.Flowers
                     .AsNoTracking()
-                    .Include(f => f.Batches.Where(b => b.Status == BatchStatus.Active))
-                    .Include(f => f.Transactions.Where(t =>
-                        t.TransactionDate >= DateTime.UtcNow.AddDays(-InventoryConstants.SafetyStock.DEMAND_LOOKBACK_DAYS)))
+                    .Include(f => f.Batches)
                     .ToListAsync(cancellationToken);
 
                 _logger.LogInformation("取得 {FlowerCount} 筆花卉資料進行庫存狀態計算", flowers.Count);
 
-                // 使用並行處理但限制並發數
                 var viewModels = new List<EnhancedInventoryViewModel>();
-                var lockObject = new object();
 
-                await Parallel.ForEachAsync(flowers, new ParallelOptions
-                {
-                    CancellationToken = cancellationToken,
-                    MaxDegreeOfParallelism = Environment.ProcessorCount
-                }, async (flower, ct) =>
+                // ✅ 全程「逐筆」計算，避免 DbContext 並行問題
+                foreach (var flower in flowers)
                 {
                     try
                     {
-                        var viewModel = await CreateInventoryViewModelAsync(flower, ct);
-                        if (viewModel != null)
+                        var vm = await CreateInventoryViewModelAsync(flower, cancellationToken);
+                        if (vm != null)
                         {
-                            lock (lockObject)
-                            {
-                                viewModels.Add(viewModel);
-                            }
+                            viewModels.Add(vm);
                         }
                     }
                     catch (Exception ex)
                     {
-                        _logger.LogWarning(ex, "建立花卉 {FlowerId} 的庫存視圖模型時發生錯誤", flower.Id);
+                        _logger.LogWarning(ex,
+                            "建立花卉 {FlowerId} 的庫存視圖模型時發生錯誤", flower.Id);
                     }
-                });
+                }
 
                 _logger.LogInformation("成功計算 {Count} 筆花卉庫存狀態", viewModels.Count);
 
-                // 存入快取
                 _cache.Set(cacheKey, viewModels, _defaultCacheDuration);
-
                 return viewModels;
-            }
-            catch (OperationCanceledException)
-            {
-                _logger.LogWarning("庫存狀態查詢操作已被取消");
-                throw;
             }
             catch (Exception ex)
             {
@@ -99,7 +85,9 @@ namespace FlowerInventory.Services
             }
         }
 
-        public async Task<ReplenishmentRecommendation> GetReplenishmentRecommendationAsync(int flowerId, CancellationToken cancellationToken = default)
+        public async Task<ReplenishmentRecommendation> GetReplenishmentRecommendationAsync(
+            int flowerId,
+            CancellationToken cancellationToken = default)
         {
             try
             {
@@ -114,16 +102,10 @@ namespace FlowerInventory.Services
                         InventoryConstants.ErrorMessages.FLOWER_NOT_FOUND);
                 }
 
-                // 並行計算相關數據
-                var currentStockTask = CalculateCurrentStockAsync(flowerId, cancellationToken);
-                var safetyStockTask = CalculateEnhancedSafetyStockAsync(flower, cancellationToken);
-                var weeklyDemandTask = CalculateWeeklyDemandAsync(flowerId, cancellationToken);
-
-                await Task.WhenAll(currentStockTask, safetyStockTask, weeklyDemandTask);
-
-                var currentStock = await currentStockTask;
-                var safetyStock = await safetyStockTask;
-                var weeklyDemand = await weeklyDemandTask;
+                // ✅ 順序執行，避免多個 EF 查詢同時跑在同一個 DbContext
+                var currentStock = await CalculateCurrentStockAsync(flowerId, cancellationToken);
+                var weeklyDemand = await CalculateWeeklyDemandAsync(flowerId, cancellationToken);
+                var safetyStock = await CalculateEnhancedSafetyStockAsync(flower, cancellationToken);
 
                 var recommendation = new ReplenishmentRecommendation
                 {
@@ -141,7 +123,12 @@ namespace FlowerInventory.Services
 
                 if (recommendation.NeedReplenishment)
                 {
-                    await CalculateReplenishmentDetailsAsync(recommendation, flower, currentStock, safetyStock, weeklyDemand);
+                    await CalculateReplenishmentDetailsAsync(
+                        recommendation,
+                        flower,
+                        currentStock,
+                        safetyStock,
+                        weeklyDemand);
                 }
                 else
                 {
@@ -157,58 +144,71 @@ namespace FlowerInventory.Services
             }
         }
 
-        public async Task<List<FlowerDemandAnalysis>> GetDemandAnalysisAsync(CancellationToken cancellationToken = default)
+        public async Task<List<FlowerDemandAnalysis>> GetDemandAnalysisAsync(
+            CancellationToken cancellationToken = default)
         {
             try
             {
-                var flowers = await _context.Flowers.AsNoTracking().ToListAsync(cancellationToken);
-                var analysisTasks = flowers.Select(async flower =>
+                var flowers = await _context.Flowers
+                    .AsNoTracking()
+                    .ToListAsync(cancellationToken);
+
+                var analysis = new List<FlowerDemandAnalysis>();
+
+                foreach (var flower in flowers)
                 {
-                    var weeklyDemandTask = CalculateWeeklyDemandAsync(flower.Id, cancellationToken);
-                    var safetyStockTask = CalculateEnhancedSafetyStockAsync(flower, cancellationToken);
-                    var stdDevTask = CalculateWeeklyDemandStdDevAsync(flower.Id, cancellationToken);
-
-                    await Task.WhenAll(weeklyDemandTask, safetyStockTask, stdDevTask);
-
-                    var weeklyDemand = await weeklyDemandTask;
-                    var safetyStock = await safetyStockTask;
-                    var stdDev = await stdDevTask;
-
-                    // 使用擴充方法來判斷需求模式和變異性
-                    var demandPattern = weeklyDemand.GetDemandPattern();
-                    var cv = stdDev / Math.Max(weeklyDemand, 0.1);
-                    var variabilityLevel = ConstantsExtensions.GetVariability(cv);
-
-                    return new FlowerDemandAnalysis
+                    try
                     {
-                        FlowerId = flower.Id,
-                        FlowerName = flower.Name,
-                        Category = flower.Category,
-                        ABCClass = flower.ABCClass,
-                        AvgWeeklyDemand = weeklyDemand,
-                        DemandStdDev = stdDev,
-                        SafetyStock = safetyStock,
-                        ReorderPoint = safetyStock + weeklyDemand,
-                        DemandPattern = demandPattern,
-                        VariabilityLevel = variabilityLevel,
-                        ServiceLevel = 0.95,
-                        ReviewFrequencyDays = flower.ABCClass.GetReviewDaysByABCClass()
-                    };
-                });
+                        // ✅ 順序執行避免 DbContext 並行
+                        var weeklyDemand = await CalculateWeeklyDemandAsync(flower.Id, cancellationToken);
+                        var safetyStock = await CalculateEnhancedSafetyStockAsync(flower, cancellationToken);
+                        var stdDev = await CalculateWeeklyDemandStdDevAsync(flower.Id, cancellationToken);
 
-                var analysis = await Task.WhenAll(analysisTasks);
-                return analysis.ToList();
+                        var demandPattern = weeklyDemand.GetDemandPattern();
+                        var cv = stdDev / Math.Max(weeklyDemand, 0.1);
+                        var variabilityLevel = ConstantsExtensions.GetVariability(cv);
+
+                        analysis.Add(new FlowerDemandAnalysis
+                        {
+                            FlowerId = flower.Id,
+                            FlowerName = flower.Name,
+                            Category = flower.Category,
+                            ABCClass = flower.ABCClass,
+                            AvgWeeklyDemand = weeklyDemand,
+                            DemandStdDev = stdDev,
+                            SafetyStock = safetyStock,
+                            ReorderPoint = safetyStock + weeklyDemand,
+                            DemandPattern = demandPattern,
+                            VariabilityLevel = variabilityLevel,
+                            ServiceLevel = 0.95,
+                            ReviewFrequencyDays = flower.ABCClass.GetReviewDaysByABCClass()
+                        });
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex,
+                            "計算每週需求/安全庫存/標準差時發生錯誤, 花卉ID: {FlowerId}", flower.Id);
+                    }
+                }
+
+                return analysis;
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "取得需求分析時發生錯誤");
                 throw new InventoryServiceException("取得需求分析失敗", ex);
             }
-        }  
+        }
 
-        // ========== 庫存操作 ==========
+        // =====================================================
+        //  庫存操作：品檢 / 庫存調整
+        // =====================================================
 
-        public async Task<InspectionResult> ProcessInspectionAsync(int batchId, int passedQuantity, string note, CancellationToken cancellationToken = default)
+        public async Task<InspectionResult> ProcessInspectionAsync(
+            int batchId,
+            int passedQuantity,
+            string note,
+            CancellationToken cancellationToken = default)
         {
             if (batchId <= 0)
                 throw new ArgumentException("批次ID必須大於0", nameof(batchId));
@@ -234,13 +234,16 @@ namespace FlowerInventory.Services
                 // 更新品檢結果
                 batch.QuantityPassed = passedQuantity;
                 batch.InspectionNote = note;
-                batch.Status = BatchStatus.Inspected;
+                batch.Status = BatchStatus.Inspected; // 品檢完成狀態
 
                 // 計算品檢合格率並更新花卉資料
-                var passRate = batch.QuantityReceived > 0 ? (decimal)passedQuantity / batch.QuantityReceived : 1m;
+                var passRate = batch.QuantityReceived > 0
+                    ? (decimal)passedQuantity / batch.QuantityReceived
+                    : 1m;
+
                 batch.Flower.InspectionPassRate = passRate;
 
-                // 建立庫存調整交易紀錄
+                // 建立庫存調整交易紀錄（入庫）
                 var adjustmentTransaction = new Transaction
                 {
                     FlowerId = batch.FlowerId,
@@ -250,6 +253,7 @@ namespace FlowerInventory.Services
                     TransactionDate = DateTime.UtcNow,
                     Note = $"品檢合格入庫: {passedQuantity}/{batch.QuantityReceived} - {note}"
                 };
+
                 _context.Transactions.Add(adjustmentTransaction);
 
                 await _context.SaveChangesAsync(cancellationToken);
@@ -260,7 +264,8 @@ namespace FlowerInventory.Services
                     ReceivedQty = batch.QuantityReceived,
                     PassedQty = passedQuantity,
                     PassRate = passRate,
-                    Message = $"{InventoryConstants.SuccessMessages.INSPECTION_COMPLETED}: {passedQuantity}/{batch.QuantityReceived} 合格 ({(passRate * 100):F1}%)",
+                    Message =
+                        $"{InventoryConstants.SuccessMessages.INSPECTION_COMPLETED}: {passedQuantity}/{batch.QuantityReceived} 合格 ({(passRate * 100):F1}%)",
                     Success = true,
                     InspectionDate = DateTime.UtcNow,
                     BatchNumber = batch.BatchNo ?? string.Empty,
@@ -283,7 +288,11 @@ namespace FlowerInventory.Services
             }
         }
 
-        public async Task<StockAdjustmentResult> AdjustStockAsync(int flowerId, int adjustmentQty, string reason, CancellationToken cancellationToken = default)
+        public async Task<StockAdjustmentResult> AdjustStockAsync(
+            int flowerId,
+            int adjustmentQty,
+            string reason,
+            CancellationToken cancellationToken = default)
         {
             if (flowerId <= 0)
                 throw new ArgumentException("花卉ID必須大於0", nameof(flowerId));
@@ -299,7 +308,7 @@ namespace FlowerInventory.Services
 
                 var oldStock = await CalculateCurrentStockAsync(flowerId, cancellationToken);
 
-                // 建立庫存調整交易紀錄
+                // 建立庫存調整交易紀錄（可能正/負）
                 var transaction = new Transaction
                 {
                     FlowerId = flowerId,
@@ -308,8 +317,8 @@ namespace FlowerInventory.Services
                     TransactionDate = DateTime.UtcNow,
                     Note = $"庫存調整: {adjustmentQty} - {reason}"
                 };
-                _context.Transactions.Add(transaction);
 
+                _context.Transactions.Add(transaction);
                 await _context.SaveChangesAsync(cancellationToken);
 
                 var newStock = await CalculateCurrentStockAsync(flowerId, cancellationToken);
@@ -345,9 +354,12 @@ namespace FlowerInventory.Services
             }
         }
 
-        // ========== 報表生成 ==========
+        // =====================================================
+        //  報表生成：庫存報表 / ABC 報表
+        // =====================================================
 
-        public async Task<InventoryReport> GenerateInventoryReportAsync(CancellationToken cancellationToken = default)
+        public async Task<InventoryReport> GenerateInventoryReportAsync(
+            CancellationToken cancellationToken = default)
         {
             try
             {
@@ -359,7 +371,8 @@ namespace FlowerInventory.Services
                     .ToList();
 
                 var criticalItems = inventoryStatus.Count(i =>
-                    i.Recommendation?.RecommendationLevel == InventoryConstants.ReplenishmentLevels.CRITICAL);
+                    i.Recommendation?.RecommendationLevel ==
+                    InventoryConstants.ReplenishmentLevels.CRITICAL);
 
                 return new InventoryReport
                 {
@@ -384,7 +397,8 @@ namespace FlowerInventory.Services
             }
         }
 
-        public async Task<ABCReport> GenerateABCReportAsync(CancellationToken cancellationToken = default)
+        public async Task<ABCReport> GenerateABCReportAsync(
+            CancellationToken cancellationToken = default)
         {
             try
             {
@@ -422,8 +436,10 @@ namespace FlowerInventory.Services
 
                     string abcClass = cumulativePercentage switch
                     {
-                        <= InventoryConstants.ABCClassification.CLASS_A_THRESHOLD => InventoryConstants.ABCClasses.CLASS_A,
-                        <= InventoryConstants.ABCClassification.CLASS_B_THRESHOLD => InventoryConstants.ABCClasses.CLASS_B,
+                        <= InventoryConstants.ABCClassification.CLASS_A_THRESHOLD =>
+                            InventoryConstants.ABCClasses.CLASS_A,
+                        <= InventoryConstants.ABCClassification.CLASS_B_THRESHOLD =>
+                            InventoryConstants.ABCClasses.CLASS_B,
                         _ => InventoryConstants.ABCClasses.CLASS_C
                     };
 
@@ -475,61 +491,67 @@ namespace FlowerInventory.Services
             }
         }
 
-        // ========== 計算方法 ==========
+        // =====================================================
+        //  計算方法：安全庫存 / 當前庫存 / 週需求 / 標準差
+        // =====================================================
 
-        public async Task<double> CalculateEnhancedSafetyStockAsync(Flower flower, CancellationToken cancellationToken = default)
+        public async Task<double> CalculateEnhancedSafetyStockAsync(
+            Flower flower,
+            CancellationToken cancellationToken = default)
         {
             if (flower == null)
                 throw new ArgumentNullException(nameof(flower));
 
             try
             {
-                // 並行計算相關數據
-                var weeklyDemandTask = CalculateWeeklyDemandAsync(flower.Id, cancellationToken);
-                var stdDevTask = CalculateWeeklyDemandStdDevAsync(flower.Id, cancellationToken);
-
-                await Task.WhenAll(weeklyDemandTask, stdDevTask);
-
-                var weeklyDemand = await weeklyDemandTask;
-                var sigma = await stdDevTask;
+                // ✅ 改成順序執行，避免 DbContext 並行
+                var weeklyDemand = await CalculateWeeklyDemandAsync(flower.Id, cancellationToken);
+                var sigma = await CalculateWeeklyDemandStdDevAsync(flower.Id, cancellationToken);
 
                 return CalculateSafetyStockInternal(flower, weeklyDemand, sigma);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "計算安全庫存錯誤 FlowerId={FlowerId}, Name={FlowerName}", flower.Id, flower.Name);
+                _logger.LogError(ex,
+                    "計算安全庫存錯誤 FlowerId={FlowerId}, Name={FlowerName}",
+                    flower.Id, flower.Name);
+
                 return flower.ABCClass.GetDefaultDemandByABCClass();
             }
         }
 
-        public async Task<int> CalculateCurrentStockAsync(int flowerId, CancellationToken cancellationToken = default)
+        /// <summary>
+        /// ✅ 修正版當前庫存：直接累加 Transactions.ChangeQty
+        /// In / Adjust 為正，Out 為負，最後再取 max(0)
+        /// </summary>
+        public async Task<int> CalculateCurrentStockAsync(
+            int flowerId,
+            CancellationToken cancellationToken = default)
         {
             try
             {
-                var totalPassed = await _context.Batches
-                    .Where(b => b.FlowerId == flowerId &&
-                            b.Status == BatchStatus.Active)
-                    .SumAsync(b => b.QuantityPassed, cancellationToken);
+                var total = await _context.Transactions
+                    .Where(t => t.FlowerId == flowerId)
+                    .SumAsync(t => (int?)t.ChangeQty, cancellationToken) ?? 0;
 
-                var totalSold = await _context.Transactions
-                    .Where(t => t.FlowerId == flowerId &&
-                            t.TransactionType == TransactionType.Out)
-                    .SumAsync(t => (int?)Math.Abs(t.ChangeQty), cancellationToken) ?? 0;
-
-                return Math.Max(0, totalPassed - totalSold);
+                return Math.Max(0, total);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "計算當前庫存時發生錯誤，花卉ID: {FlowerId}", flowerId);
+                _logger.LogError(ex,
+                    "計算當前庫存時發生錯誤，花卉ID: {FlowerId}", flowerId);
                 return 0;
             }
         }
 
-        public async Task<double> CalculateWeeklyDemandAsync(int flowerId, CancellationToken cancellationToken = default)
+        public async Task<double> CalculateWeeklyDemandAsync(
+            int flowerId,
+            CancellationToken cancellationToken = default)
         {
             try
             {
-                var since = DateTime.UtcNow.Date.AddDays(-InventoryConstants.SafetyStock.DEMAND_LOOKBACK_DAYS);
+                var since = DateTime.UtcNow.Date
+                    .AddDays(-InventoryConstants.SafetyStock.DEMAND_LOOKBACK_DAYS);
 
                 var transactions = await _context.Transactions
                     .AsNoTracking()
@@ -542,10 +564,8 @@ namespace FlowerInventory.Services
                 if (!transactions.Any())
                     return GetDefaultWeeklyDemand(flowerId);
 
-                // 分週計算需求
                 var weeklyDemands = GroupTransactionsByWeek(transactions, since);
 
-                // 需要足夠的數據點才使用實際計算
                 if (weeklyDemands.Count >= InventoryConstants.SafetyStock.MIN_WEEKS_FOR_ANALYSIS)
                 {
                     return CalculateRobustWeeklyDemand(weeklyDemands);
@@ -555,50 +575,83 @@ namespace FlowerInventory.Services
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "計算每週需求時發生錯誤, 花卉ID: {FlowerId}", flowerId);
+                _logger.LogError(ex,
+                    "計算每週需求時發生錯誤, 花卉ID: {FlowerId}", flowerId);
+
                 return GetDefaultWeeklyDemand(flowerId);
             }
         }
 
-        // ========== 同步版本（為了向後兼容） ==========
+        // =====================================================
+        //  同步版本（為了向後兼容）
+        // =====================================================
 
-        [System.Obsolete("請使用非同步版本 CalculateEnhancedSafetyStockAsync")]
+        [Obsolete("請使用非同步版本 CalculateEnhancedSafetyStockAsync")]
         public double CalculateEnhancedSafetyStock(Flower flower)
         {
             return CalculateEnhancedSafetyStockAsync(flower).GetAwaiter().GetResult();
         }
 
-        [System.Obsolete("請使用非同步版本 CalculateCurrentStockAsync")]
+        [Obsolete("請使用非同步版本 CalculateCurrentStockAsync")]
         public int CalculateCurrentStock(Flower flower)
         {
             if (flower == null) return 0;
             return CalculateCurrentStockAsync(flower.Id).GetAwaiter().GetResult();
         }
 
-        [System.Obsolete("請使用非同步版本 CalculateWeeklyDemandAsync")]
+        [Obsolete("請使用非同步版本 CalculateWeeklyDemandAsync")]
         public double CalculateWeeklyDemand(int flowerId)
         {
             return CalculateWeeklyDemandAsync(flowerId).GetAwaiter().GetResult();
         }
 
-        // ========== 私有輔助方法 ==========
+        // =====================================================
+        //  私有輔助方法
+        // =====================================================
 
-        private async Task<EnhancedInventoryViewModel> CreateInventoryViewModelAsync(Flower flower, CancellationToken cancellationToken)
+        private async Task<EnhancedInventoryViewModel?> CreateInventoryViewModelAsync(
+            Flower flower,
+            CancellationToken cancellationToken)
         {
             try
             {
-                // 並行計算所有必要數據
-                var currentStockTask = CalculateCurrentStockAsync(flower.Id, cancellationToken);
-                var safetyStockTask = CalculateEnhancedSafetyStockAsync(flower, cancellationToken);
-                var weeklyDemandTask = CalculateWeeklyDemandAsync(flower.Id, cancellationToken);
-                var recommendationTask = GetReplenishmentRecommendationAsync(flower.Id, cancellationToken);
-                var expiringBatchesTask = GetExpiringBatchesAsync(flower.Id, InventoryConstants.BusinessRules.EXPIRY_CHECK_DAYS, cancellationToken);
+                var currentStock = await CalculateCurrentStockAsync(flower.Id, cancellationToken);
+                var weeklyDemand = await CalculateWeeklyDemandAsync(flower.Id, cancellationToken);
+                var safetyStock = await CalculateEnhancedSafetyStockAsync(flower, cancellationToken);
+                var expiringBatches = await GetExpiringBatchesAsync(
+                    flower.Id,
+                    InventoryConstants.BusinessRules.EXPIRY_CHECK_DAYS,
+                    cancellationToken);
 
-                await Task.WhenAll(currentStockTask, safetyStockTask, weeklyDemandTask, recommendationTask, expiringBatchesTask);
+                // ✅ 這裡補上 RecommendationLevel / Reason 的預設值
+                var recommendation = new ReplenishmentRecommendation
+                {
+                    FlowerId = flower.Id,
+                    FlowerName = flower.Name,
+                    CurrentStock = currentStock,
+                    SafetyStock = safetyStock,
+                    WeeklyDemand = weeklyDemand,
+                    Success = true,
+                    RecommendedOrderDate = DateTime.UtcNow,
+                    RecommendationLevel = InventoryConstants.ReplenishmentLevels.NONE,
+                    Reason = "初始化"
+                };
 
-                var currentStock = await currentStockTask;
-                var safetyStock = await safetyStockTask;
-                var weeklyDemand = await weeklyDemandTask;
+                if (currentStock < Math.Ceiling(safetyStock))
+                {
+                    recommendation.NeedReplenishment = true;
+                    await CalculateReplenishmentDetailsAsync(
+                        recommendation,
+                        flower,
+                        currentStock,
+                        safetyStock,
+                        weeklyDemand);
+                }
+                else
+                {
+                    recommendation.NeedReplenishment = false;
+                    SetNoReplenishmentNeeded(recommendation);
+                }
 
                 return new EnhancedInventoryViewModel
                 {
@@ -611,20 +664,26 @@ namespace FlowerInventory.Services
                     SafetyStock = safetyStock,
                     WeeklyDemand = weeklyDemand,
                     StockStatus = GetStockStatus(currentStock, safetyStock, weeklyDemand),
-                    Recommendation = await recommendationTask,
-                    ExpiringBatches = await expiringBatchesTask,
+                    Recommendation = recommendation,
+                    ExpiringBatches = expiringBatches,
                     InspectionPassRate = flower.InspectionPassRate,
                     Price = flower.Price
                 };
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "建立庫存視圖模型時發生錯誤 FlowerId={FlowerId}", flower.Id);
-                return null!;
+                _logger.LogError(ex,
+                    "建立庫存視圖模型時發生錯誤 FlowerId={FlowerId}",
+                    flower.Id);
+                return null;
             }
         }
 
-        private double CalculateSafetyStockInternal(Flower flower, double weeklyDemand, double sigma)
+
+        private double CalculateSafetyStockInternal(
+            Flower flower,
+            double weeklyDemand,
+            double sigma)
         {
             double serviceLevel = InventoryConstants.SafetyStock.DEFAULT_SERVICE_LEVEL;
             double Z = serviceLevel.GetZValue();
@@ -654,17 +713,20 @@ namespace FlowerInventory.Services
             return Math.Ceiling(Math.Max(1.0, adjustedSafetyStock));
         }
 
-        private async Task<double> CalculateWeeklyDemandStdDevAsync(int flowerId, CancellationToken cancellationToken = default)
+        private async Task<double> CalculateWeeklyDemandStdDevAsync(
+            int flowerId,
+            CancellationToken cancellationToken = default)
         {
             try
             {
-                var since = DateTime.UtcNow.Date.AddDays(-InventoryConstants.SafetyStock.DEMAND_LOOKBACK_DAYS);
+                var since = DateTime.UtcNow.Date
+                    .AddDays(-InventoryConstants.SafetyStock.DEMAND_LOOKBACK_DAYS);
 
                 var transactions = await _context.Transactions
                     .AsNoTracking()
                     .Where(t => t.FlowerId == flowerId &&
-                            t.TransactionType == TransactionType.Out &&
-                            t.TransactionDate >= since)
+                                t.TransactionType == TransactionType.Out &&
+                                t.TransactionDate >= since)
                     .ToListAsync(cancellationToken);
 
                 if (!transactions.Any())
@@ -672,24 +734,24 @@ namespace FlowerInventory.Services
 
                 var weeklyDemands = GroupTransactionsByWeek(transactions, since);
 
-                // 需要足夠的數據點來計算標準差
                 if (weeklyDemands.Count < InventoryConstants.SafetyStock.MIN_WEEKS_FOR_STD_DEV)
                 {
                     return GetDefaultStdDevFallback(flowerId);
                 }
 
-                // 計算樣本標準差 (n-1)
                 double mean = weeklyDemands.Average();
                 double sumOfSquares = weeklyDemands.Sum(x => Math.Pow(x - mean, 2));
                 double variance = sumOfSquares / (weeklyDemands.Count - 1);
                 double stdDev = Math.Sqrt(variance);
 
-                // 保護性最小標準差
                 return Math.Max(stdDev, mean * 0.1);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "計算需求標準差時發生錯誤, 花卉ID: {FlowerId}", flowerId);
+                _logger.LogError(ex,
+                    "計算需求標準差時發生錯誤, 花卉ID: {FlowerId}",
+                    flowerId);
+
                 return GetDefaultStdDevFallback(flowerId);
             }
         }
@@ -704,15 +766,24 @@ namespace FlowerInventory.Services
             double shortage = Math.Ceiling(safetyStock) - currentStock;
             double passRate = Math.Clamp((double)flower.InspectionPassRate, 0.01, 1.0);
 
-            // 計算建議訂購量：考慮缺貨、緩衝和合格率
-            double suggestedOrder = (shortage / passRate) +
-                                  (weeklyDemand * InventoryConstants.SafetyStock.BUFFER_WEEKS);
+            double suggestedOrder =
+                (shortage / passRate) +
+                (weeklyDemand * InventoryConstants.SafetyStock.BUFFER_WEEKS);
 
-            recommendation.SuggestedOrderQuantity = (int)Math.Ceiling(Math.Max(1.0, suggestedOrder));
-            recommendation.ExpectedPassQuantity = (int)Math.Floor(recommendation.SuggestedOrderQuantity * passRate);
+            recommendation.SuggestedOrderQuantity =
+                (int)Math.Ceiling(Math.Max(1.0, suggestedOrder));
 
-            // 決定補貨緊急程度
-            DetermineReplenishmentUrgency(recommendation, shortage, weeklyDemand, currentStock, safetyStock);
+            recommendation.ExpectedPassQuantity =
+                (int)Math.Floor(recommendation.SuggestedOrderQuantity * passRate);
+
+            DetermineReplenishmentUrgency(
+                recommendation,
+                shortage,
+                weeklyDemand,
+                currentStock,
+                safetyStock);
+
+            await Task.CompletedTask;
         }
 
         private void DetermineReplenishmentUrgency(
@@ -722,58 +793,75 @@ namespace FlowerInventory.Services
             int currentStock,
             double safetyStock)
         {
-            var stockCoverageDays = weeklyDemand > 0 ? (currentStock / weeklyDemand) * 7 : 0;
+            var stockCoverageDays = weeklyDemand > 0
+                ? (currentStock / weeklyDemand) * 7
+                : 0;
 
             if (currentStock == 0)
             {
-                recommendation.RecommendationLevel = InventoryConstants.ReplenishmentLevels.CRITICAL;
+                recommendation.RecommendationLevel =
+                    InventoryConstants.ReplenishmentLevels.CRITICAL;
                 recommendation.Reason = "嚴重缺貨：當前庫存為零";
             }
             else if (shortage > weeklyDemand * 2 || stockCoverageDays < 3)
             {
-                recommendation.RecommendationLevel = InventoryConstants.ReplenishmentLevels.URGENT;
-                recommendation.Reason = $"緊急補貨：庫存僅能維持 {stockCoverageDays:F1} 天";
+                recommendation.RecommendationLevel =
+                    InventoryConstants.ReplenishmentLevels.URGENT;
+                recommendation.Reason =
+                    $"緊急補貨：庫存僅能維持 {stockCoverageDays:F1} 天";
             }
             else if (shortage > weeklyDemand || stockCoverageDays < 7)
             {
-                recommendation.RecommendationLevel = InventoryConstants.ReplenishmentLevels.SUGGESTED;
-                recommendation.Reason = $"建議補貨：當前庫存 {currentStock} 低於安全庫存 {Math.Ceiling(safetyStock)}";
+                recommendation.RecommendationLevel =
+                    InventoryConstants.ReplenishmentLevels.SUGGESTED;
+                recommendation.Reason =
+                    $"建議補貨：當前庫存 {currentStock} 低於安全庫存 {Math.Ceiling(safetyStock)}";
             }
             else
             {
-                recommendation.RecommendationLevel = InventoryConstants.ReplenishmentLevels.NONE;
+                recommendation.RecommendationLevel =
+                    InventoryConstants.ReplenishmentLevels.NONE;
                 recommendation.Reason = "庫存充足";
             }
         }
 
-        private void SetNoReplenishmentNeeded(ReplenishmentRecommendation recommendation)
+        private void SetNoReplenishmentNeeded(
+            ReplenishmentRecommendation recommendation)
         {
             recommendation.SuggestedOrderQuantity = 0;
             recommendation.ExpectedPassQuantity = 0;
-            recommendation.RecommendationLevel = InventoryConstants.ReplenishmentLevels.NONE;
+            recommendation.RecommendationLevel =
+                InventoryConstants.ReplenishmentLevels.NONE;
             recommendation.Reason = "庫存充足，無需補貨";
         }
 
-        private ReplenishmentRecommendation CreateErrorRecommendation(int flowerId, string errorMessage)
+        private ReplenishmentRecommendation CreateErrorRecommendation(
+            int flowerId,
+            string errorMessage)
         {
             return new ReplenishmentRecommendation
             {
                 FlowerId = flowerId,
                 FlowerName = "計算錯誤",
-                RecommendationLevel = InventoryConstants.ReplenishmentLevels.ERROR,
+                RecommendationLevel =
+                    InventoryConstants.ReplenishmentLevels.ERROR,
                 Reason = errorMessage,
                 Success = false
             };
         }
 
-        private List<double> GroupTransactionsByWeek(List<Transaction> transactions, DateTime sinceDate)
+        private List<double> GroupTransactionsByWeek(
+            List<Transaction> transactions,
+            DateTime sinceDate)
         {
             var weeklySums = new Dictionary<int, double>();
 
             foreach (var transaction in transactions)
             {
                 var weekNumber = GetWeekNumber(transaction.TransactionDate, sinceDate);
-                weeklySums[weekNumber] = weeklySums.GetValueOrDefault(weekNumber) + Math.Abs(transaction.ChangeQty);
+                weeklySums[weekNumber] =
+                    weeklySums.GetValueOrDefault(weekNumber) +
+                    Math.Abs(transaction.ChangeQty);
             }
 
             return weeklySums.Values.Where(sum => sum > 0).ToList();
@@ -791,44 +879,53 @@ namespace FlowerInventory.Services
             var sortedDemands = weeklyDemands.OrderBy(x => x).ToList();
             int count = sortedDemands.Count;
 
-            // 計算中位數
             double median = count % 2 == 0
                 ? (sortedDemands[count / 2 - 1] + sortedDemands[count / 2]) / 2.0
                 : sortedDemands[count / 2];
 
-            // 修剪極端值（去除最高和最低的25%）
             int trimCount = Math.Max(1, count / 4);
             var trimmedDemands = sortedDemands
                 .Skip(trimCount)
                 .Take(count - 2 * trimCount);
 
-            double trimmedMean = trimmedDemands.Any() ? trimmedDemands.Average() : median;
+            double trimmedMean = trimmedDemands.Any()
+                ? trimmedDemands.Average()
+                : median;
 
-            // 返回中位數和修剪平均數的加權平均，偏向中位數
             return (median * 0.6 + trimmedMean * 0.4);
         }
 
-        private async Task<List<Batch>> GetExpiringBatchesAsync(int flowerId, int daysThreshold, CancellationToken cancellationToken = default)
+        private async Task<List<Batch>> GetExpiringBatchesAsync(
+            int flowerId,
+            int daysThreshold,
+            CancellationToken cancellationToken = default)
         {
             try
             {
+                var todayUtc = DateTime.UtcNow.Date;
+
                 return await _context.Batches
                     .AsNoTracking()
                     .Where(b => b.FlowerId == flowerId &&
-                            b.ExpiryDate.HasValue &&
-                            b.ExpiryDate.Value <= DateTime.UtcNow.AddDays(daysThreshold) &&
-                            b.QuantityPassed > 0)
+                                b.ExpiryDate.HasValue &&
+                                b.ExpiryDate.Value >= todayUtc &&
+                                b.ExpiryDate.Value <= todayUtc.AddDays(daysThreshold) &&
+                                b.QuantityPassed > 0)
                     .OrderBy(b => b.ExpiryDate)
                     .ToListAsync(cancellationToken);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "取得即將到期批次時發生錯誤，花卉ID: {FlowerId}", flowerId);
+                _logger.LogError(ex,
+                    "取得即將到期批次時發生錯誤，花卉ID: {FlowerId}", flowerId);
                 return new List<Batch>();
             }
         }
 
-        private string GetStockStatus(int currentStock, double safetyStock, double weeklyDemand)
+        private string GetStockStatus(
+            int currentStock,
+            double safetyStock,
+            double weeklyDemand)
         {
             if (currentStock == 0)
                 return InventoryConstants.StockStatus.OUT_OF_STOCK;
@@ -836,7 +933,7 @@ namespace FlowerInventory.Services
             if (currentStock < Math.Ceiling(safetyStock))
                 return InventoryConstants.StockStatus.LOW_STOCK;
 
-            if (currentStock > weeklyDemand * 8) // 超過8週需求視為過量
+            if (weeklyDemand > 0 && currentStock > weeklyDemand * 8)
                 return InventoryConstants.StockStatus.OVERSTOCK;
 
             return InventoryConstants.StockStatus.NORMAL;
@@ -852,12 +949,16 @@ namespace FlowerInventory.Services
         {
             var avg = GetDefaultWeeklyDemand(flowerId);
             var flower = _context.Flowers.Find(flowerId);
-            double cv = flower?.ABCClass.GetCVByABCClass() ?? InventoryConstants.SafetyStock.DEFAULT_CV;
+            double cv = flower?.ABCClass.GetCVByABCClass()
+                         ?? InventoryConstants.SafetyStock.DEFAULT_CV;
             return Math.Max(1.0, avg * cv);
         }
     }
 
-    // 診斷輔助類別
+    // =====================================================
+    //  診斷 / 例外 類別
+    // =====================================================
+
     public static class DiagnosticHelper
     {
         public static IDisposable StartActivity(string operationName)
@@ -879,14 +980,17 @@ namespace FlowerInventory.Services
             public void Dispose()
             {
                 _stopwatch.Stop();
-                // 可以在這裡記錄執行時間
+                // 可在這裡記錄執行時間 (_operationName, _stopwatch.Elapsed)
             }
         }
     }
 
     public class InventoryServiceException : Exception
     {
-        public InventoryServiceException(string message) : base(message) { }
-        public InventoryServiceException(string message, Exception innerException) : base(message, innerException) { }
+        public InventoryServiceException(string message)
+            : base(message) { }
+
+        public InventoryServiceException(string message, Exception innerException)
+            : base(message, innerException) { }
     }
 }
