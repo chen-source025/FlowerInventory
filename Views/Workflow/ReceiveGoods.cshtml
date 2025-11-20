@@ -82,21 +82,24 @@
         {
             const flowerSelect = document.getElementById('FlowerId');
             const receivedDateInput = document.getElementById('ReceivedDate');
-            const expiryDate = document.getElementById('expiryDate');
+            const expiryDateInput = document.getElementById('expiryDate');
 
-            if(flowerSelect.value && receivedDateInput.value)
-            {
-                // 呼叫 API 取得花卉保存天數並計算到期天數
-                const received = new Date(receivedDate.value);
-                received.setDate(received.getDate() + 30); // 預設30天
-                expiryDate.value = received.toISOString().split('T')[0];
+            if (!flowerSelect || !receivedDateInput || !expiryDateInput) {
+                return;
+            }
+
+            if (flowerSelect.value && receivedDateInput.value) {
+                // TODO: 之後可以改成呼叫 API 取得真正的 ShelfLifeDays
+                const received = new Date(receivedDateInput.value);
+                received.setDate(received.getDate() + 30); // 目前先預設 30 天
+                expiryDateInput.value = received.toISOString().split('T')[0];
             }
         }
 
-        document.getElementById('FlowerId').addEventListener('change', calculateExpiryDate);
-        document.getElementById('ReceivedDate').addEventListener('change', calculateExpiryDate);
+        document.getElementById('FlowerId')?.addEventListener('change', calculateExpiryDate);
+        document.getElementById('ReceivedDate')?.addEventListener('change', calculateExpiryDate);
 
-        // 頁面載入時計算一次
         document.addEventListener('DOMContentLoaded', calculateExpiryDate);
     </script>
 }
+
