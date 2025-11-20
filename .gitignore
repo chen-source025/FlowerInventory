@@ -1,0 +1,28 @@
+# Build artifacts
+bin/
+obj/
+*.dll
+*.exe
+*.cache
+*.pdb
+
+# User-specific files
+.vscode/
+*.user
+*.suo
+
+# Publish output
+*.json
+*.deps.json
+*.runtimeconfig.json
+
+# Docker
+.dockerignore
+
+# Logs
+*.log
+
+# Others
+*.swp
+*.tmp
+*.bak

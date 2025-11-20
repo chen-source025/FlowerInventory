@@ -73,19 +73,27 @@ try
                     // 對齊 Batches.Id 的序列
                     // 對齊 Transactions.Id 的序列
                     await context.Database.ExecuteSqlRawAsync(@"
+                        -- Flowers 表格: 將下一個 ID 設為 (MAX(Id) + 1)
                         SELECT setval(
                         pg_get_serial_sequence('""Flowers""', 'Id'),
-                        COALESCE(MAX(""Id""), 1)
+                        COALESCE(MAX(""Id""), 0) + 1,  -- 將 '1' 改為 '0'，然後 + 1
+                        false -- 確保 setval 返回 MAX(Id) + 1
                         )
                         FROM ""Flowers"";
+
+                        -- Batches 表格:
                         SELECT setval(
                         pg_get_serial_sequence('""Batches""', 'Id'),
-                        COALESCE(MAX(""Id""), 1)
+                        COALESCE(MAX(""Id""), 0) + 1,
+                        false
                         )
                         FROM ""Batches"";
+
+                        -- Transactions 表格:
                         SELECT setval(
                         pg_get_serial_sequence('""Transactions""', 'Id'),
-                        COALESCE(MAX(""Id""), 1)
+                        COALESCE(MAX(""Id""), 0) + 1,
+                        false
                         )
                         FROM ""Transactions"";
                     ");
