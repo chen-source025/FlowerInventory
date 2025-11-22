@@ -1,0 +1,55 @@
+services:
+  db:
+    image: postgres:16
+    container_name: flower-postgres
+    restart: always
+    environment:
+      POSTGRES_DB: flower_inventory
+      POSTGRES_USER: flower
+      POSTGRES_PASSWORD: flowerpwd
+    ports:
+      - "5432:5432"
+    volumes:
+      - flower_pg_data:/var/lib/postgresql/data
+
+  web:
+    # --- 開發模式修改重點開始 ---
+    
+    # 1. 不使用 build，改直接拉取 SDK 映像檔 (包含編譯與 watch 工具)
+    image: mcr.microsoft.com/dotnet/sdk:8.0
+    
+    container_name: flower-inventory-web
+    depends_on:
+      - db
+    
+    # 2. 設定工作目錄
+    working_dir: /app
+    
+    # 3. 將 Mac 當前目錄 (.) 掛載到 Container 內的 /app
+    volumes:
+      - .:/app
+      # 避免本地的 bin/obj 資料夾與 Linux 容器內的混淆 (可選，建議加上)
+      # - /app/bin
+      # - /app/obj
+    
+      # 2. 新增一個 Volume 來持久化 DataProtection 金鑰資料夾
+      # 這會將金鑰儲存在 Docker Volumes 系統中，Container 銷毀也不會丟失。
+      - flower_dp_keys:/root/.aspnet/DataProtection-Keys
+      
+    # 4. 關鍵指令：使用 dotnet watch run 啟用熱重載
+    # --urls 參數強制指定監聽 8080
+    # 假設你的專案檔案名稱為 FlowerInventory.csproj
+    command: ["dotnet", "watch", "run", "--project", "FlowerInventory.csproj", "--urls=http://+:8080"]
+    
+    # --- 開發模式修改重點結束 ---
+
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      # 注意：在容器內連線 db，Host 必須填寫 service 名稱 (這裡是 db)
+      - ConnectionStrings__DefaultConnection=Host=db;Port=5432;Database=flower_inventory;Username=flower;Password=flowerpwd
+    ports:
+      - "8080:8080"
+
+volumes:
+  flower_pg_data:
+  flower_dp_keys:
